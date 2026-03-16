@@ -11,27 +11,18 @@ A equipe do projeto é composta pelos seguintes membros e suas respectivas funç
 - **Lucas Vinicius** - Desenvolvedor
 -  **Thainá Pontes** - Desenvolvedor(a)
   
-## 3.1 Screencast - Figma
-
-
-### 3.2 Screencast - Implementação
-
-
-
-## 4. Diagrama de Atividades
-O diagrama abaixo ilustra o fluxo de atividades do sistema, separando as ações do cliente (client-side) e do servidor (backend-side).
-
-
-## 5. Storyboard
-
-### Entrega 1
-
+## 3. Entregas:
+### Entrega 1 (16/03)
+Histórias de Usuário:
+https://docs.google.com/document/d/1Ee_YiTXSb7gR4tZWZ2L_q5IiD5HeJT4acSrWK4zyS3Y/edit?tab=t.0
+Screencast - Figma:
 
 ### Entrega 2
 
-
 ### Entrega 3
 
-
 ### Entrega 4
+
+## 4. Diagrama de Atividades
+O diagrama abaixo ilustra o fluxo de atividades do sistema, separando as ações do cliente (client-side) e do servidor (backend-side).
 
