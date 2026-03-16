@@ -22,11 +22,11 @@ https://www.figma.com/make/xeGbgU9OQFCPYm1BkJyt0o/Plataforma-de-Ingressos?p=f&t=
 #### Screencast Figma:
 
 
-### Entrega 2
+### Entrega 2 (06/04)
 
-### Entrega 3
+### Entrega 3 (27/04)
 
-### Entrega 4
+### Entrega 4 (18/05)
 
 ## 4. Diagrama de Atividades
 O diagrama abaixo ilustra o fluxo de atividades do sistema, separando as ações do cliente (client-side) e do servidor (backend-side).
