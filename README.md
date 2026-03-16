@@ -1,6 +1,6 @@
 # PROJETO POO
 ## 1. Descrição do Projeto
-Este projeto consiste em uma plataforma de gerenciamento de eventos na arena de Pernambuco, compra de ingressos, divulgação de eventos e entre outros.
+Este projeto consiste em uma plataforma de gerenciamento de eventos na arena de Pernambuco, compra de ingressos, divulgação de eventos, entre outros.
 ## 2. Cargos do Grupo
 A equipe do projeto é composta pelos seguintes membros e suas respectivas funções:
 
