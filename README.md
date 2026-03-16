@@ -13,9 +13,14 @@ A equipe do projeto é composta pelos seguintes membros e suas respectivas funç
   
 ## 3. Entregas:
 ### Entrega 1 (16/03)
-Histórias de Usuário:
+#### Histórias de Usuário:
 https://docs.google.com/document/d/1Ee_YiTXSb7gR4tZWZ2L_q5IiD5HeJT4acSrWK4zyS3Y/edit?tab=t.0
-Screencast - Figma:
+
+#### Figma:
+https://www.figma.com/make/xeGbgU9OQFCPYm1BkJyt0o/Plataforma-de-Ingressos?p=f&t=cMalvMEQ03wqK9hJ-0&preview-route=%2Fperfil
+
+#### Screencast Figma:
+
 
 ### Entrega 2
 
