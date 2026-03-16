@@ -21,6 +21,7 @@ https://www.figma.com/make/xeGbgU9OQFCPYm1BkJyt0o/Plataforma-de-Ingressos?p=f&t=
 
 #### Screencast Figma:
 
+[![Assistir Screencast](https://img.youtube.com/vi/XtgDyNkCxuE/0.jpg)](https://youtu.be/XtgDyNkCxuE)
 
 ### Entrega 2 (06/04)
 
