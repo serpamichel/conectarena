@@ -1,4 +1,4 @@
-# PROJETO POO
+# ConectArena
 ## 1. Descrição do Projeto
 Este projeto consiste em uma plataforma de gerenciamento de eventos na arena de Pernambuco, compra de ingressos, divulgação de eventos, entre outros.
 ## 2. Cargos do Grupo
