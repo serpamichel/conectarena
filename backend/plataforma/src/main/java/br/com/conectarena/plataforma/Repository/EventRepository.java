@@ -1,4 +1,4 @@
-package main.java.br.com.conectarena.plataforma.Repository;
+package br.com.conectarena.plataforma.Repository;
 
 import br.com.conectarena.plataforma.Model.Event;
 import org.springframework.data.jpa.repository.JpaRepository;

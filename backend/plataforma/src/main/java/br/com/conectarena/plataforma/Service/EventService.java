@@ -1,4 +1,4 @@
-package main.java.br.com.conectarena.plataforma.Service;
+package br.com.conectarena.plataforma.Service;
 
 import br.com.conectarena.plataforma.Model.Event;
 import br.com.conectarena.plataforma.Repository.EventRepository;

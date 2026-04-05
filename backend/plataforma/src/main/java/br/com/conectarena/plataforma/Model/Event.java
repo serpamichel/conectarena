@@ -1,4 +1,4 @@
-package main.java.br.com.conectarena.plataforma.Model;
+package br.com.conectarena.plataforma.Model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;

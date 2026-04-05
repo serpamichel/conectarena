@@ -1,4 +1,4 @@
-package main.java.br.com.conectarena.plataforma.Resource;
+package br.com.conectarena.plataforma.Resource;
 
 import java.time.LocalDateTime;
 
@@ -11,7 +11,8 @@ public class EventDTO {
     private String local;
 
     // Construtores
-    public EventDTO() {}
+    public EventDTO() {
+    }
 
     public EventDTO(Long id, String nome, String descricao, LocalDateTime data, String local) {
         this.id = id;

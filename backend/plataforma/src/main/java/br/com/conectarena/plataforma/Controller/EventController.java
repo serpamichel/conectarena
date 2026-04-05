@@ -1,4 +1,4 @@
-package main.java.br.com.conectarena.plataforma.Controller;
+package br.com.conectarena.plataforma.Controller;
 
 import br.com.conectarena.plataforma.Model.Event;
 import br.com.conectarena.plataforma.Service.EventService;
