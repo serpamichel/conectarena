@@ -1,11 +1,10 @@
-import { RouterProvider } from 'react-router-dom';
 import { useEffect } from 'react';
-import { AuthProvider } from './contexts/AuthContext';
-import { router } from './routes';
 
 export default function App() {
   useEffect(() => {
-    fetch('http://localhost:8080/api/events')
+    const apiBaseUrl = 'http://localhost:8080';
+
+    fetch(`${apiBaseUrl}/api/status`)
       .then((response) => response.json())
       .then((data) => {
         console.info('Backend conectado:', data);
@@ -16,8 +15,8 @@ export default function App() {
   }, []);
 
   return (
-    <AuthProvider>
-      <RouterProvider router={router} />
-    </AuthProvider>
+    <main>
+      <h1>Figma App</h1>
+    </main>
   );
 }

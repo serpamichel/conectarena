@@ -1,4 +1,12 @@
 {
+  "scripts": {
+    "dev": "npm --prefix frontend/figma run dev --",
+    "build": "npm --prefix frontend/figma run build",
+    "dev:front": "npm --prefix frontend/figma run dev --",
+    "build:front": "npm --prefix frontend/figma run build",
+    "compile:back": "cd backend/plataforma && ./mvnw -DskipTests compile",
+    "run:back": "cd backend/plataforma && ./mvnw spring-boot:run"
+  },
   "devDependencies": {
     "@types/react": "^19.2.14"
   }
