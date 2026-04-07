@@ -25,6 +25,10 @@ https://docs.google.com/document/d/1Ee_YiTXSb7gR4tZWZ2L_q5IiD5HeJT4acSrWK4zyS3Y/
 
 ### Entrega 2 (06/04)
 
+![Screenshot do Jira](image.png)
+
+[Screencast](https://youtu.be/PQQpSx-jCvY)
+
 ### Entrega 3 (27/04)
 
 ### Entrega 4 (18/05)
