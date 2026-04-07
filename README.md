@@ -28,7 +28,7 @@ https://docs.google.com/document/d/1Ee_YiTXSb7gR4tZWZ2L_q5IiD5HeJT4acSrWK4zyS3Y/
 ### Screenshot do Jira
 ![Screenshot do Jira](image.png)
 
-[![Screencast das histórias do usuário:](https://i9.ytimg.com/vi/PQQpSx-jCvY/mqdefault.jpg)](https://youtu.be/PQQpSx-jCvY)
+[![Screencast de duas histórias do usuário](https://i9.ytimg.com/vi/PQQpSx-jCvY/mqdefault.jpg?sqp=CNyU1M4G-oaymwEmCMACELQB8quKqQMa8AEB-AH-CYACsAWKAgwIABABGH8gEygfMA8=&rs=AOn4CLBY74IINP-NHYs4BDUWmmnkdm-03Q)](https://youtu.be/PQQpSx-jCvY)
 
 ### Entrega 3 (27/04)
 
