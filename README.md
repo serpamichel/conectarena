@@ -25,9 +25,10 @@ https://docs.google.com/document/d/1Ee_YiTXSb7gR4tZWZ2L_q5IiD5HeJT4acSrWK4zyS3Y/
 
 ### Entrega 2 (06/04)
 
+### Screenshot do Jira
 ![Screenshot do Jira](image.png)
 
-[Screencast](https://youtu.be/PQQpSx-jCvY)
+[![Screencast das histórias do usuário:](https://i9.ytimg.com/vi/PQQpSx-jCvY/mqdefault.jpg)](https://youtu.be/PQQpSx-jCvY)
 
 ### Entrega 3 (27/04)
 
