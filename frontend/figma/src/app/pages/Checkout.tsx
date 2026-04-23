@@ -1,48 +1,78 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router';
 import { ArrowLeft, CheckCircle2, CreditCard, Smartphone, Ticket, Calendar, MapPin } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { events } from '../data/mockData';
+import { type Event } from '../data/mockData';
+import { fetchEventById, createPurchase, type PurchaseResponse } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Checkout() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const quantity = parseInt(searchParams.get('quantity') || '1');
-  const event = events.find((e) => e.id === id);
+  const { user } = useAuth();
 
+  const [event, setEvent] = useState<Event | null>(null);
+  const [loadingEvent, setLoadingEvent] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState<'credit' | 'pix'>('credit');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
+  const [purchase, setPurchase] = useState<PurchaseResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!event) {
+  useEffect(() => {
+    if (!id) { setLoadingEvent(false); return; }
+    fetchEventById(id)
+      .then(setEvent)
+      .catch(() => setError('Evento não encontrado'))
+      .finally(() => setLoadingEvent(false));
+  }, [id]);
+
+  if (loadingEvent) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!event || error) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center">
-          <p className="text-lg text-slate-600 mb-4">Evento não encontrado</p>
-          <Link to="/">
-            <Button>Voltar para Home</Button>
-          </Link>
+          <p className="text-lg text-slate-600 mb-4">{error ?? 'Evento não encontrado'}</p>
+          <Link to="/"><Button>Voltar para Home</Button></Link>
         </div>
       </div>
     );
   }
 
-  const handlePayment = () => {
-    setIsProcessing(true);
-    setTimeout(() => {
-      setIsProcessing(false);
-      setIsComplete(true);
-    }, 2000);
-  };
-
   const total = event.price * quantity;
   const serviceFee = total * 0.1;
   const finalTotal = total + serviceFee;
 
-  if (isComplete) {
+  const handlePayment = async () => {
+    setIsProcessing(true);
+    setError(null);
+    try {
+      const result = await createPurchase({
+        eventoId: Number(event.id),
+        userId: user?.id ?? 'anonimo',
+        userName: user?.name ?? 'Usuário',
+        quantidade: quantity,
+        metodoPagamento: paymentMethod,
+      });
+      setPurchase(result);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro ao processar pagamento');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  if (purchase) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
@@ -52,15 +82,14 @@ export default function Checkout() {
             </div>
             <h1 className="text-2xl font-bold mb-3">Compra Confirmada!</h1>
             <p className="text-slate-600 mb-6 leading-relaxed">
-              Seus ingressos foram enviados para o seu e-mail. Apresente o QR Code na entrada do evento.
+              Seus ingressos foram registrados. Apresente o código na entrada do evento.
             </p>
-            
-            {/* Ticket Preview */}
+
             <div className="bg-gradient-to-br from-blue-600 to-blue-800 text-white rounded-2xl p-6 mb-6">
               <div className="flex items-center justify-between mb-4">
                 <Ticket className="w-8 h-8" />
                 <span className="text-sm font-mono bg-white/20 px-3 py-1 rounded-full">
-                  #{Math.random().toString(36).substr(2, 9).toUpperCase()}
+                  {purchase.codigoIngresso}
                 </span>
               </div>
               <h3 className="font-bold text-lg mb-2">{event.title}</h3>
@@ -74,9 +103,15 @@ export default function Checkout() {
                   <span>Estádio Arena</span>
                 </div>
               </div>
-              <div className="mt-4 pt-4 border-t border-white/20 text-center">
-                <p className="text-xs text-blue-200 mb-2">QUANTIDADE</p>
-                <p className="text-3xl font-bold">{quantity}</p>
+              <div className="mt-4 pt-4 border-t border-white/20 flex items-center justify-between">
+                <div className="text-left">
+                  <p className="text-xs text-blue-200">QUANTIDADE</p>
+                  <p className="text-2xl font-bold">{quantity}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-blue-200">TOTAL PAGO</p>
+                  <p className="text-2xl font-bold">R$ {purchase.totalPago.toFixed(2)}</p>
+                </div>
               </div>
             </div>
 
@@ -86,9 +121,11 @@ export default function Checkout() {
                   Voltar para Home
                 </Button>
               </Link>
-              <Button variant="outline" className="w-full h-12">
-                Ver Meus Ingressos
-              </Button>
+              <Link to="/meus-ingressos" className="block">
+                <Button variant="outline" className="w-full h-12">
+                  Ver Meus Ingressos
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>
@@ -164,9 +201,7 @@ export default function Checkout() {
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                     paymentMethod === 'credit' ? 'border-blue-600' : 'border-slate-300'
                   }`}>
-                    {paymentMethod === 'credit' && (
-                      <div className="w-3 h-3 bg-blue-600 rounded-full" />
-                    )}
+                    {paymentMethod === 'credit' && <div className="w-3 h-3 bg-blue-600 rounded-full" />}
                   </div>
                 </div>
               </button>
@@ -190,9 +225,7 @@ export default function Checkout() {
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                     paymentMethod === 'pix' ? 'border-blue-600' : 'border-slate-300'
                   }`}>
-                    {paymentMethod === 'pix' && (
-                      <div className="w-3 h-3 bg-blue-600 rounded-full" />
-                    )}
+                    {paymentMethod === 'pix' && <div className="w-3 h-3 bg-blue-600 rounded-full" />}
                   </div>
                 </div>
               </button>
@@ -208,46 +241,22 @@ export default function Checkout() {
                 <Label htmlFor="cardNumber" className="text-sm font-semibold mb-2 block">
                   Número do Cartão
                 </Label>
-                <Input
-                  id="cardNumber"
-                  placeholder="0000 0000 0000 0000"
-                  className="h-12 text-base"
-                  maxLength={19}
-                />
+                <Input id="cardNumber" placeholder="0000 0000 0000 0000" className="h-12 text-base" maxLength={19} />
               </div>
               <div>
                 <Label htmlFor="cardName" className="text-sm font-semibold mb-2 block">
                   Nome no Cartão
                 </Label>
-                <Input
-                  id="cardName"
-                  placeholder="Como está no cartão"
-                  className="h-12 text-base"
-                />
+                <Input id="cardName" placeholder="Como está no cartão" className="h-12 text-base" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label htmlFor="expiry" className="text-sm font-semibold mb-2 block">
-                    Validade
-                  </Label>
-                  <Input
-                    id="expiry"
-                    placeholder="MM/AA"
-                    className="h-12 text-base"
-                    maxLength={5}
-                  />
+                  <Label htmlFor="expiry" className="text-sm font-semibold mb-2 block">Validade</Label>
+                  <Input id="expiry" placeholder="MM/AA" className="h-12 text-base" maxLength={5} />
                 </div>
                 <div>
-                  <Label htmlFor="cvv" className="text-sm font-semibold mb-2 block">
-                    CVV
-                  </Label>
-                  <Input
-                    id="cvv"
-                    placeholder="123"
-                    type="password"
-                    className="h-12 text-base"
-                    maxLength={4}
-                  />
+                  <Label htmlFor="cvv" className="text-sm font-semibold mb-2 block">CVV</Label>
+                  <Input id="cvv" placeholder="123" type="password" className="h-12 text-base" maxLength={4} />
                 </div>
               </div>
             </CardContent>
@@ -261,7 +270,7 @@ export default function Checkout() {
               <Smartphone className="w-12 h-12 text-green-600 mx-auto mb-3" />
               <h3 className="font-bold mb-2">Pagamento via PIX</h3>
               <p className="text-sm text-slate-600 leading-relaxed">
-                Após confirmar, você receberá um QR Code para realizar o pagamento via PIX. 
+                Após confirmar, você receberá um QR Code para realizar o pagamento via PIX.
                 O ingresso será liberado após a confirmação.
               </p>
             </CardContent>
@@ -285,12 +294,17 @@ export default function Checkout() {
             <div className="h-px bg-slate-200" />
             <div className="flex items-center justify-between">
               <span className="text-lg font-bold">Total</span>
-              <span className="text-2xl font-bold text-blue-600">
-                R$ {finalTotal.toFixed(2)}
-              </span>
+              <span className="text-2xl font-bold text-blue-600">R$ {finalTotal.toFixed(2)}</span>
             </div>
           </CardContent>
         </Card>
+
+        {/* Error */}
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            {error}
+          </div>
+        )}
       </div>
 
       {/* Fixed Bottom Button */}

@@ -1,71 +1,82 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Heart, MessageCircle, Share2, Users, Plus, Check, Send, Bookmark } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Textarea } from '../components/ui/textarea';
-import { communityPosts, communityGroups, type Post } from '../data/communityData';
+import { communityGroups } from '../data/communityData';
+import { fetchPosts, createPost, togglePostLike, type ApiPost } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return 'Agora';
+  if (minutes < 60) return `${minutes}min atrás`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h atrás`;
+  const days = Math.floor(hours / 24);
+  return `${days}d atrás`;
+}
 
 export default function Community() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'feed' | 'grupos'>('feed');
-  const [posts, setPosts] = useState<Post[]>(communityPosts);
+  const [posts, setPosts] = useState<ApiPost[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(true);
   const [newPost, setNewPost] = useState('');
-  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
-  const [joinedGroups, setJoinedGroups] = useState<Set<string>>(new Set());
   const [showNewPost, setShowNewPost] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [joinedGroups, setJoinedGroups] = useState<Set<string>>(new Set());
 
-  const handleLike = (postId: string) => {
-    setLikedPosts((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(postId)) {
-        newSet.delete(postId);
-      } else {
-        newSet.add(postId);
-      }
-      return newSet;
-    });
+  useEffect(() => {
+    fetchPosts(user?.id)
+      .then(setPosts)
+      .catch(console.error)
+      .finally(() => setLoadingPosts(false));
+  }, [user?.id]);
 
-    setPosts((prev) =>
-      prev.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              likes: likedPosts.has(postId) ? post.likes - 1 : post.likes + 1,
-            }
-          : post
-      )
-    );
+  const handleLike = async (postId: number) => {
+    if (!user) return;
+    try {
+      const result = await togglePostLike(postId, user.id);
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? { ...p, likes: result.likes, likedByMe: result.likedByMe }
+            : p
+        )
+      );
+    } catch {
+      // silently ignore like errors
+    }
   };
 
   const handleJoinGroup = (groupId: string) => {
     setJoinedGroups((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(groupId)) {
-        newSet.delete(groupId);
-      } else {
-        newSet.add(groupId);
-      }
-      return newSet;
+      const next = new Set(prev);
+      next.has(groupId) ? next.delete(groupId) : next.add(groupId);
+      return next;
     });
   };
 
-  const handleCreatePost = () => {
-    if (newPost.trim()) {
-      const post: Post = {
-        id: Date.now().toString(),
-        author: {
-          name: 'Você',
-          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=You',
-          verified: false,
-        },
-        content: newPost,
-        likes: 0,
-        comments: 0,
-        timestamp: 'Agora',
-      };
-      setPosts([post, ...posts]);
+  const handleCreatePost = async () => {
+    if (!newPost.trim() || !user) return;
+    setPublishing(true);
+    try {
+      const created = await createPost({
+        authorId: user.id,
+        authorName: user.name,
+        authorAvatar: user.avatar ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`,
+        content: newPost.trim(),
+      });
+      setPosts((prev) => [created, ...prev]);
       setNewPost('');
       setShowNewPost(false);
+    } catch {
+      // silently ignore
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -74,46 +85,34 @@ export default function Community() {
       {/* Tabs */}
       <div className="bg-white sticky top-14 z-40 border-b">
         <div className="grid grid-cols-2">
-          <button
-            onClick={() => setActiveTab('feed')}
-            className={`py-4 text-base font-semibold transition-colors relative ${
-              activeTab === 'feed' 
-                ? 'text-blue-600' 
-                : 'text-slate-500'
-            }`}
-          >
-            Feed
-            {activeTab === 'feed' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('grupos')}
-            className={`py-4 text-base font-semibold transition-colors relative ${
-              activeTab === 'grupos' 
-                ? 'text-blue-600' 
-                : 'text-slate-500'
-            }`}
-          >
-            Grupos
-            {activeTab === 'grupos' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
-            )}
-          </button>
+          {(['feed', 'grupos'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`py-4 text-base font-semibold transition-colors relative ${
+                activeTab === tab ? 'text-blue-600' : 'text-slate-500'
+              }`}
+            >
+              {tab === 'feed' ? 'Feed' : 'Grupos'}
+              {activeTab === tab && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+              )}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Feed Tab */}
       {activeTab === 'feed' && (
         <div className="pb-4">
-          {/* Create Post Button */}
+          {/* Create Post */}
           <div className="bg-white p-4 mb-2">
             <button
               onClick={() => setShowNewPost(!showNewPost)}
               className="w-full flex items-center gap-3 p-3 bg-slate-50 rounded-full active:bg-slate-100 transition-colors"
             >
               <img
-                src="https://api.dicebear.com/7.x/avataaars/svg?seed=You"
+                src={user?.avatar ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id ?? 'default'}`}
                 alt="Seu avatar"
                 className="w-10 h-10 rounded-full"
               />
@@ -122,7 +121,6 @@ export default function Community() {
               </span>
             </button>
 
-            {/* New Post Form */}
             {showNewPost && (
               <div className="mt-4 space-y-3">
                 <Textarea
@@ -135,20 +133,21 @@ export default function Community() {
                 <div className="flex gap-2 justify-end">
                   <Button
                     variant="outline"
-                    onClick={() => {
-                      setShowNewPost(false);
-                      setNewPost('');
-                    }}
+                    onClick={() => { setShowNewPost(false); setNewPost(''); }}
                     className="h-11"
                   >
                     Cancelar
                   </Button>
                   <Button
                     onClick={handleCreatePost}
-                    disabled={!newPost.trim()}
+                    disabled={!newPost.trim() || publishing}
                     className="bg-[#305BF2] hover:bg-[#2347c9] h-11 px-6"
                   >
-                    <Send className="w-4 h-4 mr-2" />
+                    {publishing ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    ) : (
+                      <Send className="w-4 h-4 mr-2" />
+                    )}
                     Publicar
                   </Button>
                 </div>
@@ -156,95 +155,100 @@ export default function Community() {
             )}
           </div>
 
+          {/* Loading */}
+          {loadingPosts && (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-white h-32 animate-pulse" />
+              ))}
+            </div>
+          )}
+
           {/* Posts List */}
-          <div className="space-y-2">
-            {posts.map((post) => (
-              <Card key={post.id} className="rounded-none border-x-0">
-                <CardContent className="p-4">
-                  {/* Post Header */}
-                  <div className="flex items-start gap-3 mb-3">
-                    <img
-                      src={post.author.avatar}
-                      alt={post.author.name}
-                      className="w-12 h-12 rounded-full flex-shrink-0"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-base truncate">
-                          {post.author.name}
-                        </h3>
-                        {post.author.verified && (
-                          <Check className="w-4 h-4 text-blue-600 fill-current flex-shrink-0" />
-                        )}
-                      </div>
-                      <p className="text-sm text-slate-500">{post.timestamp}</p>
-                    </div>
-                  </div>
-
-                  {/* Post Content */}
-                  <p className="text-base leading-relaxed mb-3">{post.content}</p>
-
-                  {/* Post Image */}
-                  {post.image && (
-                    <div className="mb-3 rounded-xl overflow-hidden -mx-4">
+          {!loadingPosts && (
+            <div className="space-y-2">
+              {posts.map((post) => (
+                <Card key={post.id} className="rounded-none border-x-0">
+                  <CardContent className="p-4">
+                    {/* Header */}
+                    <div className="flex items-start gap-3 mb-3">
                       <img
-                        src={post.image}
-                        alt="Post"
-                        className="w-full h-[280px] object-cover"
+                        src={post.authorAvatar}
+                        alt={post.authorName}
+                        className="w-12 h-12 rounded-full flex-shrink-0"
                       />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-base truncate">{post.authorName}</h3>
+                          {post.authorVerified && (
+                            <Check className="w-4 h-4 text-blue-600 fill-current flex-shrink-0" />
+                          )}
+                        </div>
+                        <p className="text-sm text-slate-500">{timeAgo(post.createdAt)}</p>
+                      </div>
                     </div>
-                  )}
 
-                  {/* Post Tags */}
-                  {post.tags && post.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {post.tags.map((tag) => (
-                        <Badge
-                          key={tag}
-                          variant="outline"
-                          className="text-xs bg-blue-50 text-blue-700 border-blue-200 px-3 py-1"
-                        >
-                          #{tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
+                    {/* Content */}
+                    <p className="text-base leading-relaxed mb-3">{post.content}</p>
 
-                  {/* Post Actions */}
-                  <div className="flex items-center justify-between pt-3 border-t">
-                    <button
-                      onClick={() => handleLike(post.id)}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                        likedPosts.has(post.id)
-                          ? 'text-[#305BF2] bg-blue-50'
-                          : 'text-slate-600 active:bg-slate-100'
-                      }`}
-                    >
-                      <Heart
-                        className={`w-6 h-6 ${
-                          likedPosts.has(post.id) ? 'fill-current' : ''
+                    {/* Image */}
+                    {post.imageUrl && (
+                      <div className="mb-3 rounded-xl overflow-hidden -mx-4">
+                        <img
+                          src={post.imageUrl}
+                          alt="Post"
+                          className="w-full h-[280px] object-cover"
+                        />
+                      </div>
+                    )}
+
+                    {/* Tags */}
+                    {post.tags && post.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {post.tags.map((tag) => (
+                          <Badge
+                            key={tag}
+                            variant="outline"
+                            className="text-xs bg-blue-50 text-blue-700 border-blue-200 px-3 py-1"
+                          >
+                            #{tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex items-center justify-between pt-3 border-t">
+                      <button
+                        onClick={() => handleLike(post.id)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                          post.likedByMe
+                            ? 'text-[#305BF2] bg-blue-50'
+                            : 'text-slate-600 active:bg-slate-100'
                         }`}
-                      />
-                      <span className="font-semibold">{post.likes}</span>
-                    </button>
+                      >
+                        <Heart className={`w-6 h-6 ${post.likedByMe ? 'fill-current' : ''}`} />
+                        <span className="font-semibold">{post.likes}</span>
+                      </button>
 
-                    <button className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 active:bg-slate-100 transition-colors">
-                      <MessageCircle className="w-6 h-6" />
-                      <span className="font-semibold">{post.comments}</span>
-                    </button>
+                      <button className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 active:bg-slate-100 transition-colors">
+                        <MessageCircle className="w-6 h-6" />
+                        <span className="font-semibold">{post.comments}</span>
+                      </button>
 
-                    <button className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 active:bg-slate-100 transition-colors">
-                      <Share2 className="w-6 h-6" />
-                    </button>
+                      <button className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 active:bg-slate-100 transition-colors">
+                        <Share2 className="w-6 h-6" />
+                      </button>
 
-                    <button className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 active:bg-slate-100 transition-colors">
-                      <Bookmark className="w-6 h-6" />
-                    </button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                      <button className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 active:bg-slate-100 transition-colors">
+                        <Bookmark className="w-6 h-6" />
+                      </button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -254,16 +258,10 @@ export default function Community() {
           {communityGroups.map((group) => (
             <Card key={group.id} className="overflow-hidden shadow-md">
               <div className="relative h-[160px]">
-                <img
-                  src={group.image}
-                  alt={group.name}
-                  className="w-full h-full object-cover"
-                />
+                <img src={group.image} alt={group.name} className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                 <div className="absolute bottom-4 left-4 right-4">
-                  <h3 className="text-white font-bold text-xl mb-2">
-                    {group.name}
-                  </h3>
+                  <h3 className="text-white font-bold text-xl mb-2">{group.name}</h3>
                   <div className="flex items-center gap-2 text-white/90 text-sm">
                     <Users className="w-4 h-4" />
                     <span>{group.members.toLocaleString('pt-BR')} membros</span>
@@ -271,9 +269,7 @@ export default function Community() {
                 </div>
               </div>
               <CardContent className="p-4">
-                <p className="text-base text-slate-600 mb-4 leading-relaxed">
-                  {group.description}
-                </p>
+                <p className="text-base text-slate-600 mb-4 leading-relaxed">{group.description}</p>
                 <Button
                   onClick={() => handleJoinGroup(group.id)}
                   className={`w-full h-12 text-base font-semibold ${
@@ -283,22 +279,15 @@ export default function Community() {
                   }`}
                 >
                   {joinedGroups.has(group.id) ? (
-                    <>
-                      <Check className="w-5 h-5 mr-2" />
-                      Participando
-                    </>
+                    <><Check className="w-5 h-5 mr-2" />Participando</>
                   ) : (
-                    <>
-                      <Plus className="w-5 h-5 mr-2" />
-                      Participar
-                    </>
+                    <><Plus className="w-5 h-5 mr-2" />Participar</>
                   )}
                 </Button>
               </CardContent>
             </Card>
           ))}
 
-          {/* Create Group CTA */}
           <Card className="border-dashed border-2 border-blue-300 bg-blue-50 shadow-none">
             <CardContent className="p-8 text-center">
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -317,7 +306,7 @@ export default function Community() {
         </div>
       )}
 
-      {/* Floating Action Button */}
+      {/* FAB */}
       {activeTab === 'feed' && !showNewPost && (
         <button
           onClick={() => setShowNewPost(true)}

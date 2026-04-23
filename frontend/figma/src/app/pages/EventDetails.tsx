@@ -1,30 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
 import { ArrowLeft, Calendar, Clock, MapPin, Users, Plus, Minus, Share2, Heart, Ticket } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-import { events, type EventCategory } from '../data/mockData';
+import { type Event, type EventCategory } from '../data/mockData';
+import { fetchEventById } from '../services/api';
 
 export default function EventDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const event = events.find((e) => e.id === id);
+  const [event, setEvent] = useState<Event | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [liked, setLiked] = useState(false);
 
-  if (!event) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="text-center">
-          <p className="text-lg text-slate-600 mb-4">Evento não encontrado</p>
-          <Link to="/">
-            <Button>Voltar para Home</Button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!id) { setNotFound(true); setLoading(false); return; }
+    fetchEventById(id)
+      .then(setEvent)
+      .catch(() => setNotFound(true))
+      .finally(() => setLoading(false));
+  }, [id]);
 
   const getCategoryBadgeColor = (category: EventCategory) => {
     const colors = {
@@ -38,13 +36,39 @@ export default function EventDetails() {
 
   const formatDate = (date: string) => {
     const d = new Date(date);
-    return d.toLocaleDateString('pt-BR', { 
-      day: '2-digit', 
-      month: 'long', 
+    return d.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'long',
       year: 'numeric',
       weekday: 'long'
     });
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="h-[300px] bg-slate-200 animate-pulse" />
+        <div className="p-4 space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-24 bg-slate-200 rounded-xl animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (notFound || !event) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center">
+          <p className="text-lg text-slate-600 mb-4">Evento não encontrado</p>
+          <Link to="/">
+            <Button>Voltar para Home</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const handleCheckout = () => {
     navigate(`/checkout/${event.id}?quantity=${quantity}`);
@@ -67,7 +91,7 @@ export default function EventDetails() {
 
         {/* Action Buttons */}
         <div className="absolute top-4 right-4 z-10 flex gap-2">
-          <button 
+          <button
             onClick={() => setLiked(!liked)}
             className="w-10 h-10 bg-white/95 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform"
           >
@@ -84,7 +108,7 @@ export default function EventDetails() {
           className="w-full h-[300px] object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-        
+
         {/* Event Title Overlay */}
         <div className="absolute bottom-4 left-4 right-4">
           <Badge className={`mb-2 ${getCategoryBadgeColor(event.category)}`}>
@@ -156,20 +180,20 @@ export default function EventDetails() {
             <div className="w-full bg-slate-200 h-3 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${
-                  availabilityPercentage > 50 
-                    ? 'bg-green-500' 
-                    : availabilityPercentage > 20 
-                      ? 'bg-yellow-500' 
+                  availabilityPercentage > 50
+                    ? 'bg-green-500'
+                    : availabilityPercentage > 20
+                      ? 'bg-yellow-500'
                       : 'bg-red-500'
                 }`}
                 style={{ width: `${availabilityPercentage}%` }}
               />
             </div>
             <p className="text-sm text-slate-500 mt-2">
-              {availabilityPercentage > 50 
-                ? 'Boa disponibilidade' 
-                : availabilityPercentage > 20 
-                  ? 'Ingressos limitados' 
+              {availabilityPercentage > 50
+                ? 'Boa disponibilidade'
+                : availabilityPercentage > 20
+                  ? 'Ingressos limitados'
                   : 'Últimos ingressos!'}
             </p>
           </CardContent>
@@ -209,7 +233,7 @@ export default function EventDetails() {
           </CardContent>
         </Card>
 
-        {/* Related Info */}
+        {/* Featured Badge */}
         {event.featured && (
           <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 border-yellow-200">
             <CardContent className="p-4 text-center">

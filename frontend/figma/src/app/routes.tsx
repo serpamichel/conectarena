@@ -11,6 +11,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
+import MyTickets from "./pages/MyTickets";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export const router = createBrowserRouter([
@@ -41,6 +42,7 @@ export const router = createBrowserRouter([
       { path: "comunidade", Component: Community },
       { path: "analytics", Component: Analytics },
       { path: "perfil", Component: Profile },
+      { path: "meus-ingressos", Component: MyTickets },
       { path: "*", Component: NotFound },
     ],
   },

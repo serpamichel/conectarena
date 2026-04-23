@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router';
-import { User, Mail, Phone, MapPin, Calendar, Ticket, Heart, Settings, LogOut, Edit, Camera, CreditCard, Bell, Shield } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router';
+import { User, Mail, Phone, MapPin, Calendar, Ticket, Heart, Settings, LogOut, Edit, Camera, CreditCard, Bell, Shield, QrCode, X, ChevronRight } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -8,48 +8,37 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { useAuth } from '../contexts/AuthContext';
+import { fetchMyPurchases, type TicketPurchase } from '../services/api';
+
+function qrUrl(code: string) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(code)}&format=png`;
+}
 
 export default function Profile() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [qrTicket, setQrTicket] = useState<TicketPurchase | null>(null);
+  const [tickets, setTickets] = useState<TicketPurchase[]>([]);
   const [userData, setUserData] = useState({
-    name: user?.name || 'Maria Silva',
-    email: user?.email || 'maria.silva@email.com',
+    name: user?.name || 'Usuário',
+    email: user?.email || '',
     phone: '(81) 98765-4321',
     city: 'Recife, PE',
-    avatar: user?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Maria',
+    avatar: user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id ?? 'default'}`,
   });
 
-  const stats = {
-    eventsAttended: 12,
-    upcomingEvents: 3,
-    favoriteEvents: 8,
-    totalSpent: 1850,
-  };
+  useEffect(() => {
+    if (!user) return;
+    fetchMyPurchases(user.id).then(setTickets).catch(() => {});
+  }, [user]);
 
-  const upcomingTickets = [
-    {
-      id: '1',
-      event: 'Final do Campeonato Pernambucano',
-      date: '2026-03-25',
-      time: '16:00',
-      quantity: 2,
-      image: 'https://images.unsplash.com/photo-1734652246537-104c43a68942?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-    },
-    {
-      id: '2',
-      event: 'Festival de Frevo 2026',
-      date: '2026-04-05',
-      time: '18:00',
-      quantity: 1,
-      image: 'https://images.unsplash.com/photo-1689793354800-de168c0a4c9b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-    },
-  ];
+  const totalSpent = tickets.reduce((sum, t) => sum + t.totalPago, 0);
+  const upcomingCount = tickets.filter(t => new Date(t.evento.data) >= new Date()).length;
+  const recentTickets = tickets.slice(0, 3);
 
   const handleSaveProfile = () => {
     setShowEditDialog(false);
-    // Aqui implementaria a lógica de salvar
   };
 
   const handleLogout = () => {
@@ -92,8 +81,8 @@ export default function Profile() {
               <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-2">
                 <Ticket className="w-5 h-5 text-red-600" />
               </div>
-              <p className="text-2xl font-bold text-red-600">{stats.eventsAttended}</p>
-              <p className="text-xs text-slate-600">Eventos visitados</p>
+              <p className="text-2xl font-bold text-red-600">{tickets.length}</p>
+              <p className="text-xs text-slate-600">Compras realizadas</p>
             </CardContent>
           </Card>
 
@@ -102,7 +91,7 @@ export default function Profile() {
               <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-2">
                 <Calendar className="w-5 h-5 text-blue-600" />
               </div>
-              <p className="text-2xl font-bold text-blue-600">{stats.upcomingEvents}</p>
+              <p className="text-2xl font-bold text-blue-600">{upcomingCount}</p>
               <p className="text-xs text-slate-600">Próximos eventos</p>
             </CardContent>
           </Card>
@@ -112,7 +101,7 @@ export default function Profile() {
               <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-2">
                 <Heart className="w-5 h-5 text-purple-600" />
               </div>
-              <p className="text-2xl font-bold text-purple-600">{stats.favoriteEvents}</p>
+              <p className="text-2xl font-bold text-purple-600">—</p>
               <p className="text-xs text-slate-600">Favoritos</p>
             </CardContent>
           </Card>
@@ -122,43 +111,79 @@ export default function Profile() {
               <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center mx-auto mb-2">
                 <CreditCard className="w-5 h-5 text-green-600" />
               </div>
-              <p className="text-2xl font-bold text-green-600">R$ {stats.totalSpent}</p>
+              <p className="text-2xl font-bold text-green-600">
+                {totalSpent > 0 ? `R$ ${totalSpent.toFixed(0)}` : '—'}
+              </p>
               <p className="text-xs text-slate-600">Total gasto</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Upcoming Tickets */}
+        {/* Meus Ingressos */}
         <div className="mb-4">
-          <h2 className="text-lg font-bold mb-3">Meus Próximos Eventos</h2>
-          <div className="space-y-3">
-            {upcomingTickets.map((ticket) => (
-              <Card key={ticket.id} className="overflow-hidden">
-                <div className="flex gap-3 p-3">
-                  <img
-                    src={ticket.image}
-                    alt={ticket.event}
-                    className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-sm mb-2 line-clamp-2">{ticket.event}</h3>
-                    <div className="flex items-center gap-2 text-xs text-slate-600 mb-1">
-                      <Calendar className="w-3 h-3" />
-                      <span>{new Date(ticket.date).toLocaleDateString('pt-BR')}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <Badge className="bg-red-100 text-red-700 text-xs">
-                        {ticket.quantity} {ticket.quantity === 1 ? 'ingresso' : 'ingressos'}
-                      </Badge>
-                      <Button variant="outline" size="sm" className="h-7 text-xs">
-                        Ver QR Code
-                      </Button>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold">Meus Ingressos</h2>
+            {tickets.length > 0 && (
+              <Link
+                to="/meus-ingressos"
+                className="flex items-center gap-1 text-sm text-blue-600 font-medium"
+              >
+                Ver todos
+                <ChevronRight className="w-4 h-4" />
+              </Link>
+            )}
+          </div>
+
+          {tickets.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <Ticket className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                <p className="text-sm text-slate-500 mb-3">Nenhum ingresso comprado ainda.</p>
+                <Link to="/">
+                  <Button size="sm" className="bg-[#305BF2] hover:bg-[#2347c9]">
+                    Ver Eventos
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {recentTickets.map((ticket) => (
+                <Card key={ticket.id} className="overflow-hidden">
+                  <div className="flex gap-3 p-3">
+                    <img
+                      src={ticket.evento.imagemUrl}
+                      alt={ticket.evento.nome}
+                      className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-sm mb-1 line-clamp-2">{ticket.evento.nome}</h3>
+                      <div className="flex items-center gap-2 text-xs text-slate-600 mb-2">
+                        <Calendar className="w-3 h-3" />
+                        <span>
+                          {new Date(ticket.evento.data).toLocaleDateString('pt-BR')} • {ticket.evento.horario}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Badge className="bg-red-100 text-red-700 text-xs">
+                          {ticket.quantidade} {ticket.quantidade === 1 ? 'ingresso' : 'ingressos'}
+                        </Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs border-blue-200 text-blue-700"
+                          onClick={() => setQrTicket(ticket)}
+                        >
+                          <QrCode className="w-3 h-3 mr-1" />
+                          QR Code
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Card>
-            ))}
-          </div>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Personal Info */}
@@ -313,6 +338,46 @@ export default function Profile() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* QR Code Dialog */}
+      <Dialog open={!!qrTicket} onOpenChange={(open) => !open && setQrTicket(null)}>
+        <DialogContent className="max-w-[90vw] w-full rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base leading-snug line-clamp-2 pr-8">
+              {qrTicket?.evento.nome}
+            </DialogTitle>
+          </DialogHeader>
+          {qrTicket && (
+            <div className="flex flex-col items-center gap-4 py-2">
+              <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                <img
+                  src={qrUrl(qrTicket.codigoIngresso)}
+                  alt={`QR Code ${qrTicket.codigoIngresso}`}
+                  className="w-56 h-56"
+                />
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-slate-500 mb-1">Código do ingresso</p>
+                <p className="font-mono font-bold text-blue-700 text-lg tracking-widest">
+                  {qrTicket.codigoIngresso}
+                </p>
+              </div>
+              <div className="text-center text-xs text-slate-400 leading-relaxed">
+                <p>Apresente este QR Code na entrada do evento.</p>
+                <p>{qrTicket.quantidade} {qrTicket.quantidade === 1 ? 'ingresso' : 'ingressos'} • {qrTicket.evento.horario}</p>
+              </div>
+              <Button
+                variant="outline"
+                className="w-full h-11"
+                onClick={() => setQrTicket(null)}
+              >
+                <X className="w-4 h-4 mr-2" />
+                Fechar
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
