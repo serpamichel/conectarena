@@ -33,7 +33,7 @@ https://docs.google.com/document/d/1Ee_YiTXSb7gR4tZWZ2L_q5IiD5HeJT4acSrWK4zyS3Y/
 
 ### Entrega 3 (27/04)
 
-### Issue/bug tracker atualizado dadas as histórias adicionadas e verificaçãoo de outras funções.
+### Issue/bug tracker atualizado dadas as histórias adicionadas e verificação de outras funções.
 
 
 <img width="1881" height="909" alt="image" src="https://github.com/user-attachments/assets/092be4f4-dce2-4f74-9604-4fd716121297" />
