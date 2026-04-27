@@ -1,13 +1,15 @@
 {
   "scripts": {
-    "dev": "npm --prefix frontend/figma run dev --",
+    "dev": "concurrently -n FRONT,BACK -c cyan,green \"npm run dev:front\" \"npm run dev:back\"",
     "build": "npm --prefix frontend/figma run build",
     "dev:front": "npm --prefix frontend/figma run dev --",
     "build:front": "npm --prefix frontend/figma run build",
+    "dev:back": "cd backend/plataforma && ./mvnw spring-boot:run",
     "compile:back": "cd backend/plataforma && ./mvnw -DskipTests compile",
     "run:back": "cd backend/plataforma && ./mvnw spring-boot:run"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "@types/react": "^19.2.14"
   }
 }
