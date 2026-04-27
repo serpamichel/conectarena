@@ -13,6 +13,7 @@ interface ApiEvent {
   ingressosDisponiveis: number;
   totalIngressos: number;
   destaque: boolean;
+  destaqueExpiraEm?: string | null;
 }
 
 function mapEvent(e: ApiEvent): Event {
@@ -28,6 +29,7 @@ function mapEvent(e: ApiEvent): Event {
     totalTickets: e.totalIngressos ?? 0,
     description: e.descricao ?? '',
     featured: e.destaque ?? false,
+    featuredUntil: e.destaqueExpiraEm ?? undefined,
   };
 }
 

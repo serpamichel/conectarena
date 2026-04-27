@@ -12,6 +12,7 @@ export interface Event {
   totalTickets: number;
   description: string;
   featured: boolean;
+  featuredUntil?: string;
 }
 
 export interface Tour {

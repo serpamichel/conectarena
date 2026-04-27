@@ -52,6 +52,7 @@ export default function Checkout() {
   const total = event.price * quantity;
   const serviceFee = total * 0.1;
   const finalTotal = total + serviceFee;
+  const taxRate = 10;
 
   const handlePayment = async () => {
     setIsProcessing(true);
@@ -111,6 +112,22 @@ export default function Checkout() {
                 <div className="text-right">
                   <p className="text-xs text-blue-200">TOTAL PAGO</p>
                   <p className="text-2xl font-bold">R$ {purchase.totalPago.toFixed(2)}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-white/20 space-y-2 text-sm">
+                <div className="flex items-center justify-between text-blue-100">
+                  <span>Subtotal ({quantity} {quantity === 1 ? 'ingresso' : 'ingressos'})</span>
+                  <span>R$ {total.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-blue-100">
+                  <span>Taxa de serviço ({taxRate}%)</span>
+                  <span>R$ {serviceFee.toFixed(2)}</span>
+                </div>
+                <div className="h-px bg-white/20" />
+                <div className="flex items-center justify-between font-semibold text-base">
+                  <span>Total final confirmado</span>
+                  <span>R$ {purchase.totalPago.toFixed(2)}</span>
                 </div>
               </div>
             </div>

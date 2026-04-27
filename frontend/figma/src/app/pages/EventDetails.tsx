@@ -6,6 +6,7 @@ import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { type Event, type EventCategory } from '../data/mockData';
 import { fetchEventById } from '../services/api';
+import { isFeaturedActive } from '../utils/featured';
 
 export default function EventDetails() {
   const { id } = useParams();
@@ -75,6 +76,7 @@ export default function EventDetails() {
   };
 
   const availabilityPercentage = (event.availableTickets / event.totalTickets) * 100;
+  const featuredActive = isFeaturedActive(event);
 
   return (
     <div className="bg-slate-50 min-h-screen">
@@ -234,7 +236,7 @@ export default function EventDetails() {
         </Card>
 
         {/* Featured Badge */}
-        {event.featured && (
+        {featuredActive && (
           <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 border-yellow-200">
             <CardContent className="p-4 text-center">
               <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-2">

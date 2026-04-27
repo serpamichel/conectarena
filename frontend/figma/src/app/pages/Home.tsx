@@ -6,11 +6,13 @@ import { Badge } from '../components/ui/badge';
 import { Card, CardContent } from '../components/ui/card';
 import { type Event, type EventCategory } from '../data/mockData';
 import { fetchAllEvents } from '../services/api';
+import { isFeaturedActive } from '../utils/featured';
 
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [events, setEvents] = useState<Event[]>([]);
+  const [now, setNow] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const categoryParam = searchParams.get('categoria') as EventCategory | null;
@@ -20,6 +22,14 @@ export default function Home() {
       .then(setEvents)
       .catch(() => setError('Não foi possível carregar os eventos. O servidor está rodando?'))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setNow(Date.now());
+    }, 30000);
+
+    return () => window.clearInterval(interval);
   }, []);
 
   const filteredEvents = useMemo(() => {
@@ -39,7 +49,26 @@ export default function Home() {
     return filtered;
   }, [events, categoryParam, searchQuery]);
 
-  const featuredEvents = useMemo(() => events.filter(event => event.featured), [events]);
+  const featuredEvents = useMemo(
+    () => events.filter((event) => isFeaturedActive(event, new Date(now))),
+    [events, now]
+  );
+
+  const rankedEvents = useMemo(() => {
+    const organicOrder = new Map(events.map((event, index) => [event.id, index]));
+
+    return [...filteredEvents].sort((a, b) => {
+      const currentDate = new Date(now);
+      const aFeatured = isFeaturedActive(a, currentDate);
+      const bFeatured = isFeaturedActive(b, currentDate);
+
+      if (aFeatured !== bFeatured) {
+        return aFeatured ? -1 : 1;
+      }
+
+      return (organicOrder.get(a.id) ?? 0) - (organicOrder.get(b.id) ?? 0);
+    });
+  }, [events, filteredEvents, now]);
 
   const handleCategoryChange = (category: string) => {
     if (category === 'todos') {
@@ -73,6 +102,29 @@ export default function Home() {
   const formatDate = (date: string) => {
     const d = new Date(date);
     return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+  };
+
+  const getExpirationLabel = (featuredUntil?: string) => {
+    if (!featuredUntil) return 'Expiração em 07 dias';
+
+    const expiresAt = new Date(featuredUntil);
+    if (Number.isNaN(expiresAt.getTime())) return 'Expiração inválida';
+
+    const remainingMs = expiresAt.getTime() - now;
+    if (remainingMs <= 0) return 'Expira em menos de 1 hora';
+
+    const totalHours = Math.floor(remainingMs / (1000 * 60 * 60));
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+
+    if (days > 0) {
+      const dayLabel = days === 1 ? 'dia' : 'dias';
+      const hourLabel = hours === 1 ? 'hora' : 'horas';
+      return `Expira em ${days} ${dayLabel} e ${hours} ${hourLabel}`;
+    }
+
+    const hourLabel = totalHours === 1 ? 'hora' : 'horas';
+    return `Expira em ${totalHours} ${hourLabel}`;
   };
 
   const categories = [
@@ -150,6 +202,9 @@ export default function Home() {
             <div className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-blue-600" />
               <h2 className="text-xl font-bold">Em Destaque</h2>
+              <Badge className="bg-blue-100 text-blue-800 border border-blue-200">
+                Destaque
+              </Badge>
             </div>
             <ChevronRight className="w-5 h-5 text-slate-400" />
           </div>
@@ -171,6 +226,9 @@ export default function Home() {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                     <Badge className={`absolute top-3 right-3 ${getCategoryBadgeColor(event.category)}`}>
                       {event.category.charAt(0).toUpperCase() + event.category.slice(1)}
+                    </Badge>
+                    <Badge className="absolute top-3 left-3 bg-amber-100 text-amber-900 border border-amber-300 text-xs">
+                      {getExpirationLabel(event.featuredUntil)}
                     </Badge>
                     <div className="absolute bottom-3 left-3 right-3">
                       <h3 className="text-white font-bold text-lg line-clamp-1 mb-1">
@@ -217,7 +275,7 @@ export default function Home() {
             }
           </h2>
 
-          {filteredEvents.length === 0 ? (
+          {rankedEvents.length === 0 ? (
             <div className="text-center py-12">
               <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Search className="w-10 h-10 text-slate-400" />
@@ -228,7 +286,7 @@ export default function Home() {
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredEvents.map((event) => (
+              {rankedEvents.map((event) => (
                 <Link key={event.id} to={`/evento/${event.id}`}>
                   <Card className="overflow-hidden active:bg-slate-50 transition-colors">
                     <div className="flex gap-4 p-3">
