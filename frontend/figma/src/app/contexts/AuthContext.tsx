@@ -35,41 +35,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    // Simulação de autenticação - em produção, fazer chamada à API real
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, senha: password }),
+    });
 
-    if (password.length < 6) {
-      throw new Error('Senha deve ter no mínimo 6 caracteres');
+    if (!response.ok) {
+      throw new Error('Email ou senha inválidos');
     }
 
-    const mockUser: User = {
-      id: '1',
-      name: email.split('@')[0],
+    const data = await response.json();
+    localStorage.setItem('conectarena_token', data.token);
+
+    const loggedUser: User = {
+      id: email,
+      name: data.nome,
       email,
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
     };
 
-    setUser(mockUser);
-    localStorage.setItem('conectarena_user', JSON.stringify(mockUser));
+    setUser(loggedUser);
+    localStorage.setItem('conectarena_user', JSON.stringify(loggedUser));
   };
 
   const signup = async (name: string, email: string, password: string) => {
-    // Simulação de cadastro - em produção, fazer chamada à API real
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    const response = await fetch('/api/auth/cadastro', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome: name, email, senha: password }),
+    });
 
-    if (password.length < 6) {
-      throw new Error('Senha deve ter no mínimo 6 caracteres');
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.erro || 'Erro ao realizar cadastro');
     }
 
-    const mockUser: User = {
-      id: Math.random().toString(36).substring(7),
-      name,
+    const data = await response.json();
+    localStorage.setItem('conectarena_token', data.token);
+
+    const newUser: User = {
+      id: email,
+      name: data.nome,
       email,
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
     };
 
-    setUser(mockUser);
-    localStorage.setItem('conectarena_user', JSON.stringify(mockUser));
+    setUser(newUser);
+    localStorage.setItem('conectarena_user', JSON.stringify(newUser));
   };
 
   const logout = () => {

@@ -1,5 +1,17 @@
 import type { Event, EventCategory } from '../data/mockData';
 
+function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const token = localStorage.getItem('conectarena_token');
+  return fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers ?? {}),
+    },
+  });
+}
+
 interface ApiEvent {
   id: number;
   nome: string;
@@ -61,9 +73,8 @@ export async function createPurchase(params: {
   quantidade: number;
   metodoPagamento: string;
 }): Promise<PurchaseResponse> {
-  const res = await fetch('/api/purchases', {
+  const res = await authFetch('/api/purchases', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
   });
   if (!res.ok) {
@@ -85,7 +96,7 @@ export interface AnalyticsData {
 }
 
 export async function fetchAnalytics(): Promise<AnalyticsData> {
-  const res = await fetch('/api/purchases/analytics');
+  const res = await authFetch('/api/purchases/analytics');
   if (!res.ok) throw new Error('Falha ao buscar analytics');
   return res.json();
 }
@@ -107,7 +118,7 @@ export interface ApiPost {
 
 export async function fetchPosts(userId?: string): Promise<ApiPost[]> {
   const url = userId ? `/api/posts?userId=${userId}` : '/api/posts';
-  const res = await fetch(url);
+  const res = await authFetch(url);
   if (!res.ok) throw new Error('Falha ao buscar posts');
   return res.json();
 }
@@ -119,9 +130,8 @@ export async function createPost(params: {
   content: string;
   tags?: string[];
 }): Promise<ApiPost> {
-  const res = await fetch('/api/posts', {
+  const res = await authFetch('/api/posts', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
   });
   if (!res.ok) throw new Error('Falha ao publicar post');
@@ -147,7 +157,7 @@ export interface TicketPurchase {
 }
 
 export async function fetchMyPurchases(userId: string): Promise<TicketPurchase[]> {
-  const res = await fetch(`/api/purchases/user/${userId}`);
+  const res = await authFetch(`/api/purchases/user/${userId}`);
   if (!res.ok) throw new Error('Erro ao buscar ingressos');
   return res.json();
 }
@@ -156,9 +166,8 @@ export async function togglePostLike(
   postId: number,
   userId: string
 ): Promise<{ likes: number; likedByMe: boolean }> {
-  const res = await fetch(`/api/posts/${postId}/like`, {
+  const res = await authFetch(`/api/posts/${postId}/like`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId }),
   });
   if (!res.ok) throw new Error('Falha ao curtir post');
