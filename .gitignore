@@ -1,0 +1,29 @@
+# Banco de dados H2
+*.mv.db
+*.trace.db
+
+# Maven
+target/
+*.jar
+*.war
+
+# Node
+node_modules/
+dist/
+.npm
+
+# IDEs
+.vscode/
+.idea/
+*.iml
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Variáveis de ambiente
+.env
+.env.local
+
+# Claude
+.claude/
