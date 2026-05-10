@@ -173,3 +173,17 @@ export async function togglePostLike(
   if (!res.ok) throw new Error('Falha ao curtir post');
   return res.json();
 }
+
+export async function addPostComment(params: {
+  postId: number;
+  userId: string;
+  authorName: string;
+  text: string;
+}): Promise<{ comments: number }> {
+  const res = await authFetch(`/api/posts/${params.postId}/comment`, {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) throw new Error('Falha ao enviar comentário');
+  return res.json();
+}

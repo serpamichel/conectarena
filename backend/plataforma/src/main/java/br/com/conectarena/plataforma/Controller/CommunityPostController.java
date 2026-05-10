@@ -48,4 +48,20 @@ public class CommunityPostController {
             return ResponseEntity.badRequest().body(Map.of("erro", e.getMessage()));
         }
     }
+
+    @PostMapping("/{id}/comment")
+    public ResponseEntity<?> addComment(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        try {
+            String userId = body.getOrDefault("userId", "anonimo");
+            String authorName = body.getOrDefault("authorName", "Usuário");
+            String content = body.getOrDefault("text", "").trim();
+            if (content.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("erro", "Comentário vazio"));
+            }
+            int comments = postService.addComment(id, userId, authorName, content);
+            return ResponseEntity.ok(Map.of("comments", comments));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("erro", e.getMessage()));
+        }
+    }
 }

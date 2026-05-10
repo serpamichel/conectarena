@@ -5,7 +5,7 @@ import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Textarea } from '../components/ui/textarea';
 import { communityGroups } from '../data/communityData';
-import { fetchPosts, createPost, togglePostLike, type ApiPost } from '../services/api';
+import { addPostComment, fetchPosts, createPost, togglePostLike, type ApiPost } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 function timeAgo(iso: string): string {
@@ -27,6 +27,9 @@ export default function Community() {
   const [newPost, setNewPost] = useState('');
   const [showNewPost, setShowNewPost] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({});
+  const [commentingPostId, setCommentingPostId] = useState<number | null>(null);
+  const [commentSubmitting, setCommentSubmitting] = useState<number | null>(null);
   const [joinedGroups, setJoinedGroups] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -49,6 +52,40 @@ export default function Community() {
       );
     } catch {
       // silently ignore like errors
+    }
+  };
+
+  const handleToggleComment = (postId: number) => {
+    setCommentingPostId((prev) => (prev === postId ? null : postId));
+  };
+
+  const handleCommentChange = (postId: number, text: string) => {
+    setCommentDrafts((prev) => ({ ...prev, [postId]: text }));
+  };
+
+  const handleSendComment = async (postId: number) => {
+    if (!user) return;
+    const draft = commentDrafts[postId]?.trim();
+    if (!draft) return;
+
+    setCommentSubmitting(postId);
+    try {
+      const result = await addPostComment({
+        postId,
+        userId: user.id,
+        authorName: user.name,
+        text: draft,
+      });
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId ? { ...p, comments: result.comments } : p
+        )
+      );
+      setCommentDrafts((prev) => ({ ...prev, [postId]: '' }));
+    } catch {
+      // silently ignore comment errors
+    } finally {
+      setCommentSubmitting(null);
     }
   };
 
@@ -231,7 +268,10 @@ export default function Community() {
                         <span className="font-semibold">{post.likes}</span>
                       </button>
 
-                      <button className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 active:bg-slate-100 transition-colors">
+                      <button
+                        onClick={() => handleToggleComment(post.id)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 active:bg-slate-100 transition-colors"
+                      >
                         <MessageCircle className="w-6 h-6" />
                         <span className="font-semibold">{post.comments}</span>
                       </button>
@@ -244,6 +284,39 @@ export default function Community() {
                         <Bookmark className="w-6 h-6" />
                       </button>
                     </div>
+
+                    {commentingPostId === post.id && (
+                      <div className="mt-3 space-y-2">
+                        <Textarea
+                          placeholder="Escreva seu comentário..."
+                          value={commentDrafts[post.id] ?? ''}
+                          onChange={(e) => handleCommentChange(post.id, e.target.value)}
+                          className="min-h-[70px] text-sm resize-none"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => handleToggleComment(post.id)}
+                            className="h-10"
+                          >
+                            Fechar
+                          </Button>
+                          <Button
+                            onClick={() => handleSendComment(post.id)}
+                            disabled={
+                              !commentDrafts[post.id]?.trim() || commentSubmitting === post.id
+                            }
+                            className="bg-[#305BF2] hover:bg-[#2347c9] h-10 px-5"
+                          >
+                            {commentSubmitting === post.id ? (
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              'Comentar'
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}

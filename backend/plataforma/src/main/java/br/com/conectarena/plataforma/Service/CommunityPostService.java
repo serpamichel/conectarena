@@ -1,7 +1,9 @@
 package br.com.conectarena.plataforma.Service;
 
+import br.com.conectarena.plataforma.Model.Comment;
 import br.com.conectarena.plataforma.Model.CommunityPost;
 import br.com.conectarena.plataforma.Model.PostLike;
+import br.com.conectarena.plataforma.Repository.CommentRepository;
 import br.com.conectarena.plataforma.Repository.CommunityPostRepository;
 import br.com.conectarena.plataforma.Repository.PostLikeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +21,9 @@ public class CommunityPostService {
 
     @Autowired
     private PostLikeRepository likeRepository;
+
+    @Autowired
+    private CommentRepository commentRepository;
 
     public List<CommunityPost> getAllPosts(String userId) {
         List<CommunityPost> posts = postRepository.findAllByOrderByCreatedAtDesc();
@@ -43,6 +48,23 @@ public class CommunityPostService {
         post.setComments(0);
         post.setCreatedAt(LocalDateTime.now());
         return postRepository.save(post);
+    }
+
+    public int addComment(Long postId, String authorId, String authorName, String content) {
+        CommunityPost post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post não encontrado"));
+
+        Comment comment = new Comment();
+        comment.setPostId(postId);
+        comment.setAuthorId(authorId);
+        comment.setAuthorName(authorName);
+        comment.setContent(content);
+        comment.setCreatedAt(LocalDateTime.now());
+        commentRepository.save(comment);
+
+        post.setComments(post.getComments() + 1);
+        postRepository.save(post);
+        return post.getComments();
     }
 
     public CommunityPost toggleLike(Long postId, String userId) {
