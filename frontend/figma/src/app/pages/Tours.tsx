@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, Clock, Users, Check, Star, MapPin, ChevronRight } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
@@ -6,6 +6,7 @@ import { Badge } from '../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Input } from '../components/ui/input';
+import { fetchAllEvents } from '../services/api';
 
 interface Tour {
   id: string;
@@ -25,8 +26,12 @@ export default function Tours() {
   const [showBooking, setShowBooking] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{ date: string; time: string } | null>(null);
   const [ticketCount, setTicketCount] = useState(1);
+  const [toursState, setToursState] = useState<Tour[] | null>(null);
+  const [blockedDates, setBlockedDates] = useState<Set<string>>(new Set());
+  const [showVoucher, setShowVoucher] = useState(false);
+  const [voucherData, setVoucherData] = useState<any | null>(null);
 
-  const tours: Tour[] = [
+  const initialTours: Tour[] = [
     {
       id: '1',
       name: 'Tour VIP Completo',
@@ -95,6 +100,21 @@ export default function Tours() {
     },
   ];
 
+  useEffect(() => {
+    // Inicializa tours em estado mutável
+    setToursState(initialTours);
+
+    // Buscar eventos para bloquear datas que não estão disponíveis para tours
+    fetchAllEvents()
+      .then((events) => {
+        const dates = new Set<string>(events.map((e) => e.date));
+        setBlockedDates(dates);
+      })
+      .catch(() => {
+        // falha ao buscar eventos não impede reservas locais
+      });
+  }, []);
+
   const handleBookTour = (tour: Tour) => {
     setSelectedTour(tour);
     setShowBooking(true);
@@ -103,7 +123,44 @@ export default function Tours() {
   };
 
   const handleConfirmBooking = () => {
-    alert(`Reserva confirmada!\n\nTour: ${selectedTour?.name}\nData: ${selectedSlot?.date}\nHorário: ${selectedSlot?.time}\nIngressos: ${ticketCount}\nTotal: R$ ${((selectedTour?.price || 0) * ticketCount).toFixed(2)}`);
+    if (!selectedTour || !selectedSlot) return;
+
+    // Verifica bloqueio de data
+    if (blockedDates.has(selectedSlot.date)) {
+      alert('Não é possível reservar neste dia: o espaço está reservado para preparação de evento/jogo.');
+      return;
+    }
+
+    // Atualiza vagas localmente
+    setToursState((prev) => {
+      if (!prev) return prev;
+      return prev.map((t) => {
+        if (t.id !== selectedTour.id) return t;
+        return {
+          ...t,
+          availableSlots: t.availableSlots.map((s) => {
+            if (s.date === selectedSlot.date && s.time === selectedSlot.time) {
+              return { ...s, available: Math.max(0, s.available - ticketCount) };
+            }
+            return s;
+          }),
+        };
+      });
+    });
+
+    // Gera comprovante (voucher)
+    const voucher = {
+      id: (typeof crypto !== 'undefined' && (crypto as any).randomUUID) ? (crypto as any).randomUUID() : `${Date.now()}-${Math.floor(Math.random()*10000)}`,
+      tour: selectedTour.name,
+      date: selectedSlot.date,
+      time: selectedSlot.time,
+      tickets: ticketCount,
+      total: ((selectedTour.price || 0) * ticketCount).toFixed(2),
+      instructions: 'Apresente este comprovante na recepção do estádio 20 minutos antes do horário. Traga documento com foto.'
+    };
+
+    setVoucherData(voucher);
+    setShowVoucher(true);
     setShowBooking(false);
   };
 
@@ -124,7 +181,7 @@ export default function Tours() {
 
       {/* Tours List */}
       <div className="p-4 space-y-4">
-        {tours.map((tour) => (
+        {(toursState ?? initialTours).map((tour) => (
           <Card key={tour.id} className="overflow-hidden shadow-md">
             <div className="relative h-[200px]">
               <img
@@ -220,33 +277,44 @@ export default function Tours() {
                 Escolha data e horário
               </Label>
               <div className="space-y-2">
-                {selectedTour?.availableSlots.map((slot, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setSelectedSlot(slot)}
-                    className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
-                      selectedSlot?.date === slot.date && selectedSlot?.time === slot.time
-                        ? 'border-blue-600 bg-blue-50'
-                        : 'border-slate-200 active:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2 text-base font-semibold">
-                        <Calendar className="w-5 h-5 text-blue-600" />
-                        {formatDate(slot.date)}
+                {(
+                  (toursState?.find((t) => t.id === selectedTour?.id)?.availableSlots ?? selectedTour?.availableSlots ?? [])
+                ).map((slot, index) => {
+                  const isBlocked = blockedDates.has(slot.date);
+                  const isSoldOut = slot.available <= 0;
+
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => { if (!isBlocked && !isSoldOut) setSelectedSlot(slot); }}
+                      disabled={isBlocked || isSoldOut}
+                      className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
+                        selectedSlot?.date === slot.date && selectedSlot?.time === slot.time
+                          ? 'border-blue-600 bg-blue-50'
+                          : 'border-slate-200'
+                      } ${isBlocked || isSoldOut ? 'opacity-60 cursor-not-allowed' : 'active:bg-slate-50'}`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2 text-base font-semibold">
+                          <Calendar className="w-5 h-5 text-blue-600" />
+                          {formatDate(slot.date)}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2 text-slate-600">
-                        <Clock className="w-4 h-4" />
-                        {slot.time}
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2 text-slate-600">
+                          <Clock className="w-4 h-4" />
+                          {slot.time}
+                        </div>
+                        <span className={`font-medium ${isSoldOut ? 'text-rose-600' : 'text-green-600'}`}>
+                          {isSoldOut ? 'Esgotado' : `${slot.available} vagas disponíveis`}
+                        </span>
                       </div>
-                      <span className="text-green-600 font-medium">
-                        {slot.available} vagas disponíveis
-                      </span>
-                    </div>
-                  </button>
-                ))}
+                      {isBlocked && (
+                        <div className="mt-2 text-sm text-rose-600">Indisponível: preparo do espaço para evento/jogo neste dia.</div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -313,6 +381,75 @@ export default function Tours() {
             >
               Confirmar Reserva
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Voucher Dialog */}
+      <Dialog open={showVoucher} onOpenChange={setShowVoucher}>
+        <DialogContent className="max-w-md w-full rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Comprovante de Reserva</DialogTitle>
+          </DialogHeader>
+          <div className="p-4 space-y-4">
+            {voucherData && (
+              <div>
+                <p className="text-sm text-slate-600 mb-2">Código:</p>
+                <div className="p-3 bg-slate-50 rounded-md font-mono text-sm mb-3">{voucherData.id}</div>
+
+                <p className="text-sm text-slate-600">Tour</p>
+                <h3 className="font-bold text-lg">{voucherData.tour}</h3>
+
+                <div className="mt-2 grid grid-cols-2 gap-2 text-sm text-slate-700">
+                  <div>
+                    <p className="text-xs text-slate-500">Data</p>
+                    <p>{voucherData.date}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Horário</p>
+                    <p>{voucherData.time}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <p className="text-xs text-slate-500">Ingressos</p>
+                  <p>{voucherData.tickets} • Total R$ {voucherData.total}</p>
+                </div>
+
+                <div className="mt-4 text-sm text-slate-600">
+                  <p className="font-semibold">Instruções</p>
+                  <p>{voucherData.instructions}</p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <Button
+                onClick={async () => {
+                  if (!voucherData) return;
+                  const text = `Comprovante: ${voucherData.id}\nTour: ${voucherData.tour}\nData: ${voucherData.date} ${voucherData.time}\nIngressos: ${voucherData.tickets}\nTotal: R$ ${voucherData.total}\n\n${voucherData.instructions}`;
+                  try { await navigator.clipboard.writeText(text); alert('Comprovante copiado para a área de transferência'); } catch { alert('Não foi possível copiar para a área de transferência'); }
+                }}
+                variant="outline"
+              >
+                Copiar comprovante
+              </Button>
+
+              <Button
+                onClick={() => {
+                  if (!voucherData) return;
+                  const subject = encodeURIComponent('Comprovante de Reserva - ' + voucherData.tour);
+                  const body = encodeURIComponent(`Comprovante: ${voucherData.id}\nTour: ${voucherData.tour}\nData: ${voucherData.date} ${voucherData.time}\nIngressos: ${voucherData.tickets}\nTotal: R$ ${voucherData.total}\n\n${voucherData.instructions}`);
+                  window.location.href = `mailto:?subject=${subject}&body=${body}`;
+                }}
+              >
+                Enviar por e-mail
+              </Button>
+            </div>
+
+            <div>
+              <Button onClick={() => setShowVoucher(false)} variant="ghost">Fechar</Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
