@@ -20,6 +20,10 @@ public class PurchaseController {
     @PostMapping
     public ResponseEntity<?> createPurchase(@RequestBody Map<String, Object> body) {
         try {
+            if (body.get("eventoId") == null) {
+                return ResponseEntity.badRequest().body(Map.of("erro", "ID do evento é obrigatório"));
+            }
+            
             Long eventoId = Long.valueOf(body.get("eventoId").toString());
             String userId = body.getOrDefault("userId", "anonimo").toString();
             String userName = body.getOrDefault("userName", "Usuário").toString();
@@ -29,8 +33,13 @@ public class PurchaseController {
             Purchase purchase = purchaseService.createPurchase(
                     eventoId, userId, userName, quantidade, metodoPagamento);
             return ResponseEntity.ok(purchase);
+        } catch (NumberFormatException e) {
+            return ResponseEntity.badRequest().body(Map.of("erro", "Formato de dados inválido: " + e.getMessage()));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("erro", e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of("erro", "Erro ao processar compra: " + e.getMessage()));
         }
     }
 

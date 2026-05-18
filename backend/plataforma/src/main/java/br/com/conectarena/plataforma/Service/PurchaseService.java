@@ -22,11 +22,18 @@ public class PurchaseService {
 
     public Purchase createPurchase(Long eventoId, String userId, String userName,
                                    Integer quantidade, String metodoPagamento) {
+        if (eventoId == null || eventoId <= 0) {
+            throw new RuntimeException("ID do evento inválido");
+        }
+        if (quantidade == null || quantidade <= 0) {
+            throw new RuntimeException("Quantidade deve ser maior que zero");
+        }
+        
         Event evento = eventRepository.findById(eventoId)
-                .orElseThrow(() -> new RuntimeException("Evento não encontrado"));
+                .orElseThrow(() -> new RuntimeException("Evento com ID " + eventoId + " não encontrado. Você precisa criar o evento primeiro."));
 
-        if (evento.getIngressosDisponiveis() < quantidade) {
-            throw new RuntimeException("Ingressos insuficientes");
+        if (evento.getIngressosDisponiveis() == null || evento.getIngressosDisponiveis() < quantidade) {
+            throw new RuntimeException("Ingressos insuficientes para este evento");
         }
 
         double subtotal = evento.getPreco() * quantidade;
