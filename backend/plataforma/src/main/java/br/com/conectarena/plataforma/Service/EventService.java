@@ -17,6 +17,19 @@ public class EventService {
 
     // Criar um novo evento
     public Event createEvent(Event event) {
+        if (event.getData() != null) {
+            java.time.LocalDateTime startOfDay = event.getData().toLocalDate().atStartOfDay();
+            java.time.LocalDateTime endOfDay = event.getData().toLocalDate().atTime(23, 59, 59);
+
+            if (eventRepository.existsByDataBetween(startOfDay, endOfDay)) {
+                throw new IllegalStateException("A Arena já possui um evento agendado para esta data. Solicitamos alterar o calendário da atividade.");
+            }
+        }
+        
+        if (Boolean.TRUE.equals(event.getDestaque())) {
+            event.setDestaqueExpiraEm(LocalDateTime.now().plusDays(7));
+        }
+        
         return eventRepository.save(event);
     }
 

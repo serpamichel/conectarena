@@ -33,6 +33,9 @@ public class Event {
     private Integer ingressosDisponiveis;
     private Integer totalIngressos;
     private Boolean destaque;
+    
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    private LocalDateTime destaqueExpiraEm;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -69,4 +72,7 @@ public class Event {
 
     public Boolean getDestaque() { return destaque; }
     public void setDestaque(Boolean destaque) { this.destaque = destaque; }
+
+    public LocalDateTime getDestaqueExpiraEm() { return destaqueExpiraEm; }
+    public void setDestaqueExpiraEm(LocalDateTime destaqueExpiraEm) { this.destaqueExpiraEm = destaqueExpiraEm; }
 }

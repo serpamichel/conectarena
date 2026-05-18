@@ -5,6 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { fetchAnalytics, type AnalyticsData } from '../services/api';
 
 const EMPTY_ANALYTICS: AnalyticsData = {
+  eventMetrics: [],
   totalRevenue: 0,
   ticketsSold: 0,
   totalEvents: 0,
@@ -46,11 +47,17 @@ export default function Analytics() {
   return (
     <div className="bg-slate-50 min-h-screen">
       {/* Header */}
-      <div className="bg-[#394A7D] text-white px-4 py-8">
+      <div className="bg-[#394A7D] text-white px-4 py-8 relative">
         <h1 className="text-2xl font-bold mb-2">Analytics</h1>
-        <p className="text-blue-100 leading-relaxed">
+        <p className="text-blue-100 leading-relaxed mb-4">
           Acompanhe métricas e desempenho em tempo real
         </p>
+        <button 
+          onClick={() => window.location.href = '/admin/criar-evento'}
+          className="bg-[#305BF2] hover:bg-[#2347c9] text-white font-medium px-4 py-2 rounded-xl text-sm transition-colors shadow-lg"
+        >
+          + Publicar Evento
+        </button>
       </div>
 
       {loading ? (
@@ -240,6 +247,71 @@ export default function Analytics() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Métricas Detalhadas (História 04.1 e 04.2) */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                Estatísticas Detalhadas dos Eventos
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {data.eventMetrics.length === 0 ? (
+                <p className="text-center text-slate-400 py-4 text-sm">Nenhum evento registrado ainda</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="text-xs text-slate-500 bg-slate-50 uppercase border-b">
+                      <tr>
+                        <th className="px-4 py-3">Evento</th>
+                        <th className="px-4 py-3">Data Prevista</th>
+                        <th className="px-4 py-3 text-center">Visualizações</th>
+                        <th className="px-4 py-3 text-center">Interesse</th>
+                        <th className="px-4 py-3 text-center">Vendidos</th>
+                        <th className="px-4 py-3 text-center">Ocupação (Estimada)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.eventMetrics.map((ev) => (
+                        <tr key={ev.id} className="border-b last:border-0 hover:bg-slate-50">
+                          <td className="px-4 py-3 font-medium text-slate-800 border-r">{ev.name}</td>
+                          <td className="px-4 py-3 text-slate-600 border-r">
+                            {ev.date.substring(0, 10).split('-').reverse().join('/')}
+                          </td>
+                          <td className="px-4 py-3 text-center text-slate-600 border-r">
+                            <span className="flex items-center justify-center gap-1">
+                              <Eye className="w-3 h-3 text-blue-500" />
+                              {ev.views.toLocaleString('pt-BR')}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center border-r">
+                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                              ev.interest === 'Alto' ? 'bg-green-100 text-green-700' :
+                              ev.interest === 'Médio' ? 'bg-amber-100 text-amber-700' :
+                              'bg-red-100 text-red-700'
+                            }`}>
+                              {ev.interest}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center text-slate-600 border-r">
+                            {ev.ticketsSold.toLocaleString('pt-BR')} <span className="text-xs text-slate-400">/ {ev.totalCapacity.toLocaleString('pt-BR')}</span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <div className="w-full bg-slate-200 rounded-full h-2.5 mb-1 max-w-[80px] mx-auto overflow-hidden">
+                              <div className={`h-2.5 rounded-full ${
+                                ev.occupancyRate > 80 ? 'bg-green-500' : ev.occupancyRate > 40 ? 'bg-amber-500' : 'bg-blue-500'
+                              }`} style={{ width: `${ev.occupancyRate}%` }}></div>
+                            </div>
+                            <span className="text-xs font-semibold text-slate-600">{ev.occupancyRate}%</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </CardContent>

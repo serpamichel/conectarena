@@ -140,9 +140,9 @@ export default function Login() {
 
           {/* Demo Credentials */}
           <div className="mt-8 p-4 bg-slate-50 rounded-xl border border-slate-200">
-            <p className="text-xs text-slate-600 mb-2 font-medium">💡 Demo - Use qualquer e-mail e senha com 6+ caracteres</p>
+            <p className="text-xs text-slate-600 mb-2 font-medium">💡 Demo - Use qualquer e-mail e senha com 8+ caracteres</p>
             <p className="text-xs text-slate-500">
-              Ex: <span className="font-mono">demo@conectarena.com</span> / <span className="font-mono">123456</span>
+              Ex: <span className="font-mono">demo@conectarena.com</span> / <span className="font-mono">12345678</span>
             </p>
           </div>
         </div>

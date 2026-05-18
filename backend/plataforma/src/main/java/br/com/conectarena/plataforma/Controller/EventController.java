@@ -32,9 +32,13 @@ public class EventController {
 
     // Endpoint para criar um evento
     @PostMapping
-    public ResponseEntity<Event> createEvent(@RequestBody Event event) {
-        Event savedEvent = eventService.createEvent(event);
-        return ResponseEntity.ok(savedEvent);
+    public ResponseEntity<?> createEvent(@RequestBody Event event) {
+        try {
+            Event savedEvent = eventService.createEvent(event);
+            return ResponseEntity.ok(savedEvent);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.CONFLICT).body(java.util.Map.of("erro", e.getMessage()));
+        }
     }
 
     // Endpoint para listar todos os eventos (deve vir antes de /{id})

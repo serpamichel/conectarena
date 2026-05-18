@@ -21,4 +21,7 @@ public interface EventRepository extends JpaRepository<Event, Long> {
     // Método customizado para pesquisar por nome e data
     @Query("SELECT e FROM Event e WHERE LOWER(e.nome) LIKE LOWER(CONCAT('%', :nome, '%')) AND e.data >= :data")
     List<Event> findByNomeAndDataAfter(@Param("nome") String nome, @Param("data") LocalDateTime data);
+
+    // Método para validar se já existe evento num determinado período (dia)
+    boolean existsByDataBetween(LocalDateTime start, LocalDateTime end);
 }

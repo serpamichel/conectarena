@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { Search, Calendar, MapPin, TrendingUp, Music, Theater, Trophy, Grid3x3, ChevronRight } from 'lucide-react';
+import { Search, Calendar, MapPin, TrendingUp, Music, Theater, Trophy, Grid3x3, ChevronRight, ChevronLeft, Mic, Heart } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -18,6 +18,20 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [errorType, setErrorType] = useState<'network' | 'server' | null>(null);
   const categoryParam = searchParams.get('categoria') as EventCategory | null;
+
+  const carouselRef = useRef<HTMLDivElement>(null);
+
+  const scrollRight = () => {
+    if (carouselRef.current) {
+      carouselRef.current.scrollBy({ left: 300, behavior: 'smooth' });
+    }
+  };
+
+  const scrollLeft = () => {
+    if (carouselRef.current) {
+      carouselRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+    }
+  };
 
   const loadEvents = () => {
     setLoading(true);
@@ -115,6 +129,8 @@ export default function Home() {
       futebol: Trophy,
       musica: Music,
       teatro: Theater,
+      palestras: Mic,
+      religiosos: Heart,
       outros: Calendar,
     };
     return icons[category as keyof typeof icons] || Calendar;
@@ -153,6 +169,8 @@ export default function Home() {
     { id: 'futebol', label: 'Futebol', color: 'from-blue-500 to-blue-600' },
     { id: 'musica', label: 'Música', color: 'from-purple-500 to-purple-600' },
     { id: 'teatro', label: 'Teatro', color: 'from-amber-500 to-amber-600' },
+    { id: 'palestras', label: 'Palestras', color: 'from-rose-500 to-rose-600' },
+    { id: 'religiosos', label: 'Religiosos', color: 'from-emerald-500 to-emerald-600' },
     { id: 'outros', label: 'Outros', color: 'from-slate-500 to-slate-600' },
   ];
 
@@ -240,10 +258,25 @@ export default function Home() {
                 Destaque
               </Badge>
             </div>
-            <ChevronRight className="w-5 h-5 text-slate-400" />
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={scrollLeft}
+                className="p-1.5 rounded-full hover:bg-slate-200 transition-colors text-slate-400 hover:text-slate-600"
+                aria-label="Voltar para o início"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+              <button 
+                onClick={scrollRight}
+                className="p-1.5 rounded-full hover:bg-slate-200 transition-colors text-slate-400 hover:text-slate-600"
+                aria-label="Avançar carrossel"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            </div>
           </div>
 
-          <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
+          <div ref={carouselRef} className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 scroll-smooth">
             {featuredEvents.map((event) => (
               <Link
                 key={event.id}
@@ -323,6 +356,8 @@ export default function Home() {
                     <Button variant="ghost" onClick={() => setSearchQuery('')}>Limpar busca</Button>
                   </div>
                 </>
+              ) : categoryParam ? (
+                <p className="text-slate-500 text-base">Nenhum evento encontrado para esta categoria</p>
               ) : (
                 <p className="text-slate-500 text-base">Nenhum evento encontrado</p>
               )}

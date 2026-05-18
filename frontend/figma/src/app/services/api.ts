@@ -59,6 +59,28 @@ export async function fetchEventById(id: string): Promise<Event> {
   return mapEvent(data);
 }
 
+export async function createEvent(eventData: Partial<ApiEvent>): Promise<ApiEvent> {
+  const token = localStorage.getItem('conectarena_token');
+  const res = await fetch('/api/events', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify(eventData),
+  });
+  
+  if (!res.ok) {
+    let errorMsg = 'Falha ao criar evento';
+    if (res.status === 409 || res.status === 400) {
+      const errorData = await res.json().catch(() => ({}));
+      errorMsg = errorData.erro || errorMsg;
+    }
+    throw new Error(errorMsg);
+  }
+  return res.json();
+}
+
 export interface PurchaseResponse {
   id: number;
   codigoIngresso: string;
@@ -88,6 +110,16 @@ export async function createPurchase(params: {
 }
 
 export interface AnalyticsData {
+  eventMetrics: {
+    id: number;
+    name: string;
+    date: string;
+    ticketsSold: number;
+    totalCapacity: number;
+    occupancyRate: number;
+    views: number;
+    interest: string;
+  }[];
   totalRevenue: number;
   ticketsSold: number;
   totalEvents: number;

@@ -21,13 +21,14 @@ export default function Checkout() {
   const [paymentMethod, setPaymentMethod] = useState<'credit' | 'pix'>('credit');
   const [isProcessing, setIsProcessing] = useState(false);
   const [purchase, setPurchase] = useState<PurchaseResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) { setLoadingEvent(false); return; }
     fetchEventById(id)
       .then(setEvent)
-      .catch(() => setError('Evento não encontrado'))
+      .catch(() => setLoadError('Evento não encontrado'))
       .finally(() => setLoadingEvent(false));
   }, [id]);
 
@@ -39,11 +40,11 @@ export default function Checkout() {
     );
   }
 
-  if (!event || error) {
+  if (!event || loadError) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center">
-          <p className="text-lg text-slate-600 mb-4">{error ?? 'Evento não encontrado'}</p>
+          <p className="text-lg text-slate-600 mb-4">{loadError ?? 'Evento não encontrado'}</p>
           <Link to="/"><Button>Voltar para Home</Button></Link>
         </div>
       </div>
@@ -62,7 +63,7 @@ export default function Checkout() {
       return;
     }
     setIsProcessing(true);
-    setError(null);
+    setCheckoutError(null);
     try {
       const result = await createPurchase({
         eventoId: Number(event.id),
@@ -79,7 +80,7 @@ export default function Checkout() {
         navigate(`/login?redirect=/checkout/${id}?quantity=${quantity}`);
         return;
       }
-      setError(msg);
+      setCheckoutError(msg);
     } finally {
       setIsProcessing(false);
     }
@@ -329,9 +330,13 @@ export default function Checkout() {
         </Card>
 
         {/* Error */}
-        {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-            {error}
+        {checkoutError && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex flex-col gap-1 shadow-sm">
+            <span className="font-semibold flex items-center gap-2">
+              <span className="w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-xs">!</span>
+              Falha no Cáculo de Taxas / Pagamento
+            </span>
+            <span>{checkoutError}</span>
           </div>
         )}
       </div>

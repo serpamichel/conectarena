@@ -12,6 +12,7 @@ import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 import MyTickets from "./pages/MyTickets";
+import CreateEvent from "./pages/CreateEvent";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export const router = createBrowserRouter([
@@ -43,6 +44,7 @@ export const router = createBrowserRouter([
       { path: "analytics", Component: Analytics },
       { path: "perfil", Component: Profile },
       { path: "meus-ingressos", Component: MyTickets },
+      { path: "admin/criar-evento", Component: CreateEvent },
       { path: "*", Component: NotFound },
     ],
   },
