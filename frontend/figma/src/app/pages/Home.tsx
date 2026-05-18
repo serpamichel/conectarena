@@ -1,13 +1,15 @@
+
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Link, useSearchParams } from 'react-router';
-import { Search, Calendar, MapPin, TrendingUp, Music, Theater, Trophy, Grid3x3, ChevronRight, ChevronLeft, Mic, Heart } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router';
+import { Search, Calendar, MapPin, TrendingUp, Music, Theater, Trophy, Grid3x3, ChevronRight, ChevronLeft, Mic, Heart, Users, Plus, Edit, Trash } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent } from '../components/ui/card';
 import { type Event, type EventCategory } from '../data/mockData';
-import { fetchAllEvents } from '../services/api';
+import { fetchAllEvents, getCreatedEventsForUser, deleteCreatedEventForUser } from '../services/api';
 import { isFeaturedActive } from '../utils/featured';
+import { useAuth } from '../contexts/AuthContext';
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
@@ -16,7 +18,10 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [errorType, setErrorType] = useState<'network' | 'server' | null>(null);
-  const categoryParam = searchParams.get('categoria') as EventCategory | null;
+  const categoryParam = searchParams.get('categoria') as EventCategory | 'cadastrados' | null;
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [createdEvents, setCreatedEvents] = useState<Record<string, Event>>({});
 
   const carouselRef = useRef<HTMLDivElement>(null);
 
@@ -59,6 +64,24 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (user) {
+      setCreatedEvents(getCreatedEventsForUser(user.id));
+    } else {
+      setCreatedEvents({});
+    }
+  }, [user]);
+
+  const handleDeleteCreatedEvent = (eventId: string) => {
+    if (!user) return;
+    deleteCreatedEventForUser(user.id, eventId);
+    setCreatedEvents((prev) => {
+      const next = { ...prev };
+      delete next[eventId];
+      return next;
+    });
+  };
+
+  useEffect(() => {
     const interval = window.setInterval(() => {
       setNow(Date.now());
     }, 30000);
@@ -66,10 +89,23 @@ export default function Home() {
     return () => window.clearInterval(interval);
   }, []);
 
-  const filteredEvents = useMemo(() => {
-    let filtered = events;
+  const mergedEvents = useMemo(() => {
+    const eventMap = new Map(events.map((event) => [event.id, event]));
+    Object.values(createdEvents).forEach((createdEvent) => {
+      eventMap.set(createdEvent.id, {
+        ...eventMap.get(createdEvent.id),
+        ...createdEvent,
+      });
+    });
+    return Array.from(eventMap.values());
+  }, [events, createdEvents]);
 
-    if (categoryParam) {
+  const filteredEvents = useMemo(() => {
+    let filtered = mergedEvents;
+
+    if (categoryParam === 'cadastrados') {
+      filtered = filtered.filter(event => Boolean(createdEvents[event.id]));
+    } else if (categoryParam) {
       filtered = filtered.filter(event => event.category === categoryParam);
     }
 
@@ -81,15 +117,15 @@ export default function Home() {
     }
 
     return filtered;
-  }, [events, categoryParam, searchQuery]);
+  }, [mergedEvents, categoryParam, searchQuery, createdEvents]);
 
   const featuredEvents = useMemo(
-    () => events.filter((event) => isFeaturedActive(event, new Date(now))),
-    [events, now]
+    () => mergedEvents.filter((event) => isFeaturedActive(event, new Date(now))),
+    [mergedEvents, now]
   );
 
   const rankedEvents = useMemo(() => {
-    const organicOrder = new Map(events.map((event, index) => [event.id, index]));
+    const organicOrder = new Map(mergedEvents.map((event, index) => [event.id, index]));
 
     return [...filteredEvents].sort((a, b) => {
       const currentDate = new Date(now);
@@ -102,7 +138,7 @@ export default function Home() {
 
       return (organicOrder.get(a.id) ?? 0) - (organicOrder.get(b.id) ?? 0);
     });
-  }, [events, filteredEvents, now]);
+  }, [mergedEvents, filteredEvents, now]);
 
   const handleCategoryChange = (category: string) => {
     if (category === 'todos') {
@@ -125,6 +161,7 @@ export default function Home() {
   const getCategoryIcon = (category: string) => {
     const icons = {
       todos: Grid3x3,
+      cadastrados: Users,
       futebol: Trophy,
       musica: Music,
       teatro: Theater,
@@ -165,6 +202,7 @@ export default function Home() {
 
   const categories = [
     { id: 'todos', label: 'Todos', color: 'from-[#305BF2] to-[#2347c9]' },
+    { id: 'cadastrados', label: 'Meus Eventos', color: 'from-emerald-500 to-emerald-600' },
     { id: 'futebol', label: 'Futebol', color: 'from-blue-500 to-blue-600' },
     { id: 'musica', label: 'Música', color: 'from-purple-500 to-purple-600' },
     { id: 'teatro', label: 'Teatro', color: 'from-amber-500 to-amber-600' },
@@ -177,7 +215,7 @@ export default function Home() {
     <div className="bg-slate-50">
       {/* Search Section */}
       <section className="bg-white px-4 py-4 border-b">
-        <div className="relative">
+        <div className="mb-4 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
           <Input
             placeholder="Buscar eventos, shows, jogos..."
@@ -185,6 +223,12 @@ export default function Home() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10 h-12 text-base bg-slate-50 border-slate-200"
           />
+        </div>
+        <div className="flex justify-end">
+          <Link to="/admin/criar-evento" className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-colors">
+            <Plus className="w-4 h-4" />
+            Publicar Evento
+          </Link>
         </div>
       </section>
 
@@ -333,11 +377,13 @@ export default function Home() {
       {!loading && (
         <section className="px-4 py-6">
           <h2 className="text-xl font-bold mb-4">
-            {categoryParam
-              ? `Eventos de ${categoryParam.charAt(0).toUpperCase() + categoryParam.slice(1)}`
-              : searchQuery
-                ? 'Resultados da busca'
-                : 'Todos os Eventos'
+            {categoryParam === 'cadastrados'
+              ? 'Meus Eventos'
+              : categoryParam
+                ? `Eventos de ${categoryParam.charAt(0).toUpperCase() + categoryParam.slice(1)}`
+                : searchQuery
+                  ? 'Resultados da busca'
+                  : 'Todos os Eventos'
             }
           </h2>
 
@@ -355,6 +401,12 @@ export default function Home() {
                     <Button variant="ghost" onClick={() => setSearchQuery('')}>Limpar busca</Button>
                   </div>
                 </>
+              ) : categoryParam === 'cadastrados' ? (
+                user ? (
+                  <p className="text-slate-500 text-base">Você ainda não cadastrou eventos.</p>
+                ) : (
+                  <p className="text-slate-500 text-base">Faça login para ver seus eventos cadastrados.</p>
+                )
               ) : categoryParam ? (
                 <p className="text-slate-500 text-base">Nenhum evento encontrado para esta categoria</p>
               ) : (
@@ -363,31 +415,37 @@ export default function Home() {
             </div>
           ) : (
             <div className="space-y-4">
-              {rankedEvents.map((event) => (
-                <Link key={event.id} to={`/evento/${event.id}`}>
-                  <Card className="overflow-hidden active:bg-slate-50 transition-colors">
-                    <div className="flex gap-4 p-3">
-                      <div className="relative flex-shrink-0">
-                        <img
-                          src={event.image}
-                          alt={event.title}
-                          className="w-24 h-24 object-cover rounded-lg"
-                        />
-                        <Badge className={`absolute -top-1 -right-1 text-xs px-2 ${getCategoryBadgeColor(event.category)}`}>
-                          {event.category.charAt(0).toUpperCase() + event.category.slice(1)}
-                        </Badge>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-base mb-1 line-clamp-2">{event.title}</h3>
-                        <div className="flex items-center gap-2 text-sm text-slate-600 mb-2">
-                          <Calendar className="w-4 h-4 flex-shrink-0" />
-                          <span className="truncate">{formatDate(event.date)} • {event.time}</span>
+              {rankedEvents.map((event) => {
+                const isCreated = Boolean(createdEvents[event.id]);
+                return (
+                  <Card key={event.id} className="overflow-hidden active:bg-slate-50 transition-colors">
+                    <div className="flex flex-col gap-4 p-3 lg:flex-row lg:items-center lg:justify-between">
+                      <Link to={`/evento/${event.id}`} className="flex-1 min-w-0 flex gap-4 items-center">
+                        <div className="relative flex-shrink-0">
+                          <img
+                            src={event.image}
+                            alt={event.title}
+                            className="w-24 h-24 object-cover rounded-lg"
+                          />
+                          <Badge className={`absolute -top-1 -right-1 text-xs px-2 ${getCategoryBadgeColor(event.category)}`}>
+                            {event.category.charAt(0).toUpperCase() + event.category.slice(1)}
+                          </Badge>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-slate-600 mb-2">
-                          <MapPin className="w-4 h-4 flex-shrink-0" />
-                          <span className="truncate">Estádio Arena</span>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-base mb-1 line-clamp-2">{event.title}</h3>
+                          <div className="flex items-center gap-2 text-sm text-slate-600 mb-2">
+                            <Calendar className="w-4 h-4 flex-shrink-0" />
+                            <span className="truncate">{formatDate(event.date)} • {event.time}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-slate-600 mb-2">
+                            <MapPin className="w-4 h-4 flex-shrink-0" />
+                            <span className="truncate">Estádio Arena</span>
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between mt-2">
+                      </Link>
+
+                      <div className="flex flex-col gap-3 lg:items-end">
+                        <div className="flex items-center gap-3">
                           <div>
                             <p className="text-xs text-slate-500">A partir de</p>
                             <p className="text-lg font-bold text-blue-600">
@@ -398,15 +456,46 @@ export default function Home() {
                             Comprar
                           </div>
                         </div>
+                        {isCreated && (
+                          <div className="flex flex-wrap gap-2 justify-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-9 text-xs border-slate-200 text-slate-700"
+                              onClick={() => navigate(`/evento/${event.id}`)}
+                            >
+                              <Edit className="w-4 h-4 mr-1" />
+                              Editar
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="h-9 text-xs"
+                              onClick={() => handleDeleteCreatedEvent(event.id)}
+                            >
+                              <Trash className="w-4 h-4 mr-1" />
+                              Excluir
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </Card>
-                </Link>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
       )}
+      <div className="fixed bottom-6 left-1/2 z-40 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 px-4">
+        <Link
+          to="/admin/criar-evento"
+          className="inline-flex items-center justify-center gap-2 w-full rounded-full bg-blue-600 text-white py-3 text-sm font-semibold shadow-2xl shadow-blue-600/20 hover:bg-blue-700 transition-colors"
+        >
+          <Plus className="w-5 h-5" />
+          Criar Evento
+        </Link>
+      </div>
     </div>
   );
 }

@@ -4,8 +4,12 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Textarea } from '../components/ui/textarea';
+import { Edit, Trash } from 'lucide-react';
 import { communityGroups } from '../data/communityData';
-import { addPostComment, fetchPosts, createPost, togglePostLike, type ApiPost } from '../services/api';
+import { addPostComment, fetchPosts, createPost, togglePostLike, getEditedPostsForUser, saveEditedPostForUser, getDeletedPostIdsForUser, markPostDeletedForUser, type ApiPost } from '../services/api';
+import { containsProfanity } from '../utils/profanity';
+import { warnIfOffline } from '../utils/offline';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { useAuth } from '../contexts/AuthContext';
 
 function timeAgo(iso: string): string {
@@ -31,16 +35,27 @@ export default function Community() {
   const [commentingPostId, setCommentingPostId] = useState<number | null>(null);
   const [commentSubmitting, setCommentSubmitting] = useState<number | null>(null);
   const [joinedGroups, setJoinedGroups] = useState<Set<string>>(new Set());
+  const [editingPostId, setEditingPostId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState('');
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   useEffect(() => {
     fetchPosts(user?.id)
-      .then(setPosts)
-      .catch(console.error)
+      .then((fetched) => {
+        const edits = user ? getEditedPostsForUser(user.id) : {};
+        const deleted = user ? getDeletedPostIdsForUser(user.id) : [];
+        const applied = fetched
+          .filter((p) => !deleted.includes(String(p.id)))
+          .map((p) => ({ ...p, ...(edits[String(p.id)] ?? {}) }));
+        setPosts(applied);
+      })
+      .catch((e) => { console.error(e); setPosts([]); })
       .finally(() => setLoadingPosts(false));
   }, [user?.id]);
 
   const handleLike = async (postId: number) => {
     if (!user) return;
+    if (warnIfOffline('curtir o post')) return;
     try {
       const result = await togglePostLike(postId, user.id);
       setPosts((prev) =>
@@ -53,8 +68,35 @@ export default function Community() {
     } catch {
       // silently ignore like errors
     }
-  };
+    };
 
+    const openEditPost = (post: ApiPost) => {
+      setEditingPostId(post.id);
+      setEditDraft(post.content);
+      setShowEditDialog(true);
+    };
+
+    const handleSaveEdit = () => {
+      if (!user || editingPostId == null) return;
+      if (containsProfanity(editDraft)) {
+        window.alert('Seu post contém linguagem proibida. Remova palavras chulas para continuar.');
+        return;
+      }
+      if (warnIfOffline('editar post')) return;
+      saveEditedPostForUser(user.id, String(editingPostId), { content: editDraft });
+      setPosts((prev) => prev.map((p) => (p.id === editingPostId ? { ...p, content: editDraft } : p)));
+      setShowEditDialog(false);
+      setEditingPostId(null);
+      setEditDraft('');
+    };
+
+    const handleDeletePost = (postId: number) => {
+      if (!user) return;
+      if (warnIfOffline('excluir post')) return;
+      if (!window.confirm('Tem certeza que deseja excluir este post?')) return;
+      markPostDeletedForUser(user.id, String(postId));
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+    };
   const handleToggleComment = (postId: number) => {
     setCommentingPostId((prev) => (prev === postId ? null : postId));
   };
@@ -68,6 +110,12 @@ export default function Community() {
     const draft = commentDrafts[postId]?.trim();
     if (!draft) return;
 
+    if (containsProfanity(draft)) {
+      window.alert('Seu comentário contém linguagem proibida. Remova palavras chulas para continuar.');
+      return;
+    }
+
+    if (warnIfOffline('comentar')) return;
     setCommentSubmitting(postId);
     try {
       const result = await addPostComment({
@@ -99,7 +147,12 @@ export default function Community() {
 
   const handleCreatePost = async () => {
     if (!newPost.trim() || !user) return;
+    if (containsProfanity(newPost)) {
+      window.alert('Seu post contém linguagem proibida. Remova palavras chulas para continuar.');
+      return;
+    }
     setPublishing(true);
+    if (warnIfOffline('publicar')) { setPublishing(false); return; }
     try {
       const created = await createPost({
         authorId: user.id,
@@ -115,6 +168,9 @@ export default function Community() {
     } finally {
       setPublishing(false);
     }
+  };
+
+
   };
 
   return (
@@ -283,6 +339,22 @@ export default function Community() {
                       <button className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 active:bg-slate-100 transition-colors">
                         <Bookmark className="w-6 h-6" />
                       </button>
+                      {post.authorId === user?.id && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => openEditPost(post)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 active:bg-slate-100 transition-colors"
+                          >
+                            <Edit className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeletePost(post.id)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-red-600 active:bg-red-50 transition-colors"
+                          >
+                            <Trash className="w-5 h-5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {commentingPostId === post.id && (
@@ -326,6 +398,24 @@ export default function Community() {
       )}
 
       {/* Groups Tab */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl p-6">
+          <DialogHeader>
+            <DialogTitle>Editar Post</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Textarea
+              value={editDraft}
+              onChange={(e) => setEditDraft(e.target.value)}
+              className="min-h-[120px]"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowEditDialog(false)}>Cancelar</Button>
+              <Button onClick={handleSaveEdit} className="bg-[#305BF2] hover:bg-[#2347c9]">Salvar</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       {activeTab === 'grupos' && (
         <div className="p-4 space-y-4">
           {communityGroups.map((group) => (

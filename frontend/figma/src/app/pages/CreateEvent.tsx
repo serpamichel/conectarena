@@ -4,7 +4,8 @@ import { Calendar, Image as ImageIcon, MapPin, Clock, DollarSign, Tag, Users, Al
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { useAuth } from '../contexts/AuthContext';
-import { createEvent, type ApiEvent } from '../services/api';
+import { createEvent, saveCreatedEventForUser, type ApiEvent } from '../services/api';
+import { warnIfOffline } from '../utils/offline';
 
 export default function CreateEvent() {
   const navigate = useNavigate();
@@ -44,6 +45,10 @@ export default function CreateEvent() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    if (warnIfOffline('publicar evento')) {
+      setLoading(false);
+      return;
+    }
     
     try {
       // Backend expects: 2026-06-15T18:00:00
@@ -63,7 +68,23 @@ export default function CreateEvent() {
         destaque: formData.destaque
       };
 
-      await createEvent(payload);
+      const savedEvent = await createEvent(payload);
+      if (user?.id) {
+        saveCreatedEventForUser(user.id, {
+          id: String(savedEvent.id),
+          title: savedEvent.nome,
+          category: savedEvent.categoria ?? 'outros',
+          date: savedEvent.data ? savedEvent.data.substring(0, 10) : '',
+          time: savedEvent.horario ?? '',
+          image: savedEvent.imagemUrl ?? '',
+          price: savedEvent.preco ?? 0,
+          availableTickets: savedEvent.ingressosDisponiveis ?? 0,
+          totalTickets: savedEvent.totalIngressos ?? 0,
+          description: savedEvent.descricao ?? '',
+          featured: savedEvent.destaque ?? false,
+          featuredUntil: savedEvent.destaqueExpiraEm ?? undefined,
+        });
+      }
       setSuccess(true);
       setTimeout(() => {
         navigate('/');

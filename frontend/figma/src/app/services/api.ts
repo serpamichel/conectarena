@@ -71,6 +71,10 @@ export async function createEvent(eventData: Partial<ApiEvent>): Promise<ApiEven
   });
   
   if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      throw new Error('A publicação de eventos exige login. Por favor, faça login e tente novamente.');
+    }
+
     let errorMsg = 'Falha ao criar evento';
     if (res.status === 409 || res.status === 400) {
       const errorData = await res.json().catch(() => ({}));
@@ -79,6 +83,106 @@ export async function createEvent(eventData: Partial<ApiEvent>): Promise<ApiEven
     throw new Error(errorMsg);
   }
   return res.json();
+}
+
+const CREATED_EVENTS_KEY_PREFIX = 'conectarena_created_events_';
+
+type CreatedEventsMap = Record<string, Event>;
+
+function parseCreatedEvents(raw: string | null): CreatedEventsMap {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return {};
+    }
+    if (typeof parsed === 'object' && parsed !== null) {
+      return parsed as CreatedEventsMap;
+    }
+  } catch {
+    return {};
+  }
+  return {};
+}
+
+export function getCreatedEventIdsForUser(userId: string): string[] {
+  const raw = localStorage.getItem(`${CREATED_EVENTS_KEY_PREFIX}${userId}`);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.map(String);
+    }
+    if (typeof parsed === 'object' && parsed !== null) {
+      return Object.keys(parsed);
+    }
+  } catch {
+    return [];
+  }
+  return [];
+}
+
+export function getCreatedEventsForUser(userId: string): CreatedEventsMap {
+  const raw = localStorage.getItem(`${CREATED_EVENTS_KEY_PREFIX}${userId}`);
+  return parseCreatedEvents(raw);
+}
+
+export function saveCreatedEventForUser(userId: string, event: Event): void {
+  try {
+    const existing = getCreatedEventsForUser(userId);
+    existing[event.id] = event;
+    localStorage.setItem(`${CREATED_EVENTS_KEY_PREFIX}${userId}`, JSON.stringify(existing));
+  } catch {
+    // ignore localStorage failure
+  }
+}
+
+export function deleteCreatedEventForUser(userId: string, eventId: string): void {
+  try {
+    const raw = localStorage.getItem(`${CREATED_EVENTS_KEY_PREFIX}${userId}`);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      const updated = parsed.filter((id) => String(id) !== eventId);
+      localStorage.setItem(`${CREATED_EVENTS_KEY_PREFIX}${userId}`, JSON.stringify(updated));
+      return;
+    }
+    if (typeof parsed === 'object' && parsed !== null) {
+      delete parsed[eventId];
+      localStorage.setItem(`${CREATED_EVENTS_KEY_PREFIX}${userId}`, JSON.stringify(parsed));
+    }
+  } catch {
+    // ignore localStorage failure
+  }
+}
+
+export function saveCreatedEventIdForUser(userId: string, eventId: string): void {
+  try {
+    const existing = getCreatedEventsForUser(userId);
+    if (Object.keys(existing).length > 0) {
+      existing[eventId] = existing[eventId] ?? {
+        id: eventId,
+        title: '',
+        category: 'outros',
+        date: '',
+        time: '',
+        image: '',
+        price: 0,
+        availableTickets: 0,
+        totalTickets: 0,
+        description: '',
+        featured: false,
+      };
+      localStorage.setItem(`${CREATED_EVENTS_KEY_PREFIX}${userId}`, JSON.stringify(existing));
+      return;
+    }
+
+    const ids = getCreatedEventIdsForUser(userId);
+    const updated = Array.from(new Set([...ids, eventId]));
+    localStorage.setItem(`${CREATED_EVENTS_KEY_PREFIX}${userId}`, JSON.stringify(updated));
+  } catch {
+    // ignore localStorage failure
+  }
 }
 
 export interface PurchaseResponse {
@@ -251,4 +355,56 @@ export async function addPostComment(params: {
   });
   if (!res.ok) throw new Error('Falha ao enviar comentário');
   return res.json();
+}
+
+const LOCAL_POST_OVERRIDES_PREFIX = 'conectarena_post_overrides_';
+const LOCAL_POST_DELETIONS_PREFIX = 'conectarena_post_deletions_';
+
+export type PostOverride = {
+  content?: string;
+  editedAt?: string;
+};
+
+export function getEditedPostsForUser(userId: string): Record<string, PostOverride> {
+  try {
+    const raw = localStorage.getItem(`${LOCAL_POST_OVERRIDES_PREFIX}${userId}`);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (typeof parsed === 'object' && parsed !== null) return parsed;
+  } catch {
+    // ignore
+  }
+  return {};
+}
+
+export function saveEditedPostForUser(userId: string, postId: string, override: PostOverride): void {
+  try {
+    const existing = getEditedPostsForUser(userId);
+    existing[postId] = { ...(existing[postId] ?? {}), ...override, editedAt: new Date().toISOString() };
+    localStorage.setItem(`${LOCAL_POST_OVERRIDES_PREFIX}${userId}`, JSON.stringify(existing));
+  } catch {
+    // ignore
+  }
+}
+
+export function getDeletedPostIdsForUser(userId: string): string[] {
+  try {
+    const raw = localStorage.getItem(`${LOCAL_POST_DELETIONS_PREFIX}${userId}`);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.map(String);
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+export function markPostDeletedForUser(userId: string, postId: string): void {
+  try {
+    const ids = new Set(getDeletedPostIdsForUser(userId));
+    ids.add(postId);
+    localStorage.setItem(`${LOCAL_POST_DELETIONS_PREFIX}${userId}`, JSON.stringify(Array.from(ids)));
+  } catch {
+    // ignore
+  }
 }

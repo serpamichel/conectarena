@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { DollarSign, Ticket, Calendar, Users, TrendingUp, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { fetchAnalytics, type AnalyticsData } from '../services/api';
+import { fetchAnalytics, fetchAllEvents, type AnalyticsData } from '../services/api';
+import type { Event } from '../data/mockData';
 
 const EMPTY_ANALYTICS: AnalyticsData = {
   eventMetrics: [],
@@ -33,12 +34,74 @@ export default function Analytics() {
   const COLORS = ['#DC2626', '#1E40AF', '#F59E0B', '#64748b'];
   const [data, setData] = useState<AnalyticsData>(EMPTY_ANALYTICS);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  function buildFallbackAnalytics(events: Event[]): AnalyticsData {
+    return {
+      totalRevenue: 0,
+      ticketsSold: 0,
+      totalEvents: events.length,
+      ticketMedio: 0,
+      salesByCategory: [
+        { name: 'Futebol', value: 0 },
+        { name: 'Música', value: 0 },
+        { name: 'Teatro', value: 0 },
+        { name: 'Outros', value: 0 },
+      ],
+      topEvents: [],
+      salesByDay: [
+        { day: 'Seg', vendas: 0 },
+        { day: 'Ter', vendas: 0 },
+        { day: 'Qua', vendas: 0 },
+        { day: 'Qui', vendas: 0 },
+        { day: 'Sex', vendas: 0 },
+        { day: 'Sáb', vendas: 0 },
+        { day: 'Dom', vendas: 0 },
+      ],
+      salesByMonth: [],
+      eventMetrics: events.map((event) => ({
+        id: Number(event.id),
+        name: event.title,
+        date: event.date,
+        ticketsSold: 0,
+        totalCapacity: event.totalTickets,
+        occupancyRate: 0,
+        views: 20,
+        interest: 'Baixo',
+      })),
+    };
+  }
 
   useEffect(() => {
-    fetchAnalytics()
-      .then(setData)
-      .catch(() => {/* mantém EMPTY_ANALYTICS */})
-      .finally(() => setLoading(false));
+    async function loadAnalytics() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const events = await fetchAllEvents();
+
+        try {
+          const analytics = await fetchAnalytics();
+          setData({
+            ...analytics,
+            totalEvents: events.length,
+            eventMetrics: analytics.eventMetrics.length > 0
+              ? analytics.eventMetrics
+              : buildFallbackAnalytics(events).eventMetrics,
+          });
+        } catch (analyticsError) {
+          setError('Não foi possível carregar as métricas de vendas. Exibindo apenas os eventos cadastrados.');
+          setData(buildFallbackAnalytics(events));
+        }
+      } catch (eventsError) {
+        setError('Não foi possível carregar os eventos cadastrados. Tente novamente mais tarde.');
+        setData(EMPTY_ANALYTICS);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadAnalytics();
   }, []);
 
   const formatRevenue = (v: number) =>
@@ -62,6 +125,11 @@ export default function Analytics() {
         </div>
       ) : (
         <div className="p-4 space-y-4 pb-4">
+          {error && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+              {error}
+            </div>
+          )}
           {/* Key Metrics */}
           <div className="grid grid-cols-2 gap-3">
             <Card className="border-red-200 bg-gradient-to-br from-red-50 to-white">

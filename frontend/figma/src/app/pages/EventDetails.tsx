@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
-import { ArrowLeft, Calendar, Clock, MapPin, Users, Plus, Minus, Share2, Heart, Ticket } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, MapPin, Users, Plus, Minus, Share2, Heart, Ticket, Edit, Trash } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
 import { type Event, type EventCategory } from '../data/mockData';
-import { fetchEventById } from '../services/api';
+import { fetchEventById, getCreatedEventIdsForUser, getCreatedEventsForUser, saveCreatedEventForUser, deleteCreatedEventForUser } from '../services/api';
+import { warnIfOffline } from '../utils/offline';
+import { useAuth } from '../contexts/AuthContext';
 import { isFeaturedActive } from '../utils/featured';
 
 export default function EventDetails() {
@@ -16,14 +21,46 @@ export default function EventDetails() {
   const [notFound, setNotFound] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [liked, setLiked] = useState(false);
+  const [isUserCreated, setIsUserCreated] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editFormData, setEditFormData] = useState<Event | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!id) { setNotFound(true); setLoading(false); return; }
+    setLoading(true);
+    const storedEvent = user ? getCreatedEventsForUser(user.id)[id] : undefined;
+
     fetchEventById(id)
-      .then(setEvent)
-      .catch(() => setNotFound(true))
+      .then((fetchedEvent) => {
+        setEvent({ ...fetchedEvent, ...(storedEvent ?? {}) });
+      })
+      .catch(() => {
+        if (storedEvent) {
+          setEvent(storedEvent);
+          setNotFound(false);
+        } else {
+          setNotFound(true);
+        }
+      })
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, user]);
+
+  useEffect(() => {
+    if (!user || !event) {
+      setIsUserCreated(false);
+      return;
+    }
+    setIsUserCreated(getCreatedEventIdsForUser(user.id).includes(event.id));
+  }, [event, user]);
+
+  useEffect(() => {
+    if (!event) return;
+    setQuantity((prev) => {
+      if (event.availableTickets <= 0) return 0;
+      return Math.min(Math.max(1, prev), event.availableTickets);
+    });
+  }, [event]);
 
   const getCategoryBadgeColor = (category: EventCategory) => {
     const colors = {
@@ -72,7 +109,30 @@ export default function EventDetails() {
   }
 
   const handleCheckout = () => {
+    if (quantity < 1 || quantity > event.availableTickets) {
+      return;
+    }
     navigate(`/checkout/${event.id}?quantity=${quantity}`);
+  };
+
+  const handleOpenEditDialog = () => {
+    if (!event) return;
+    setEditFormData(event);
+    setShowEditDialog(true);
+  };
+
+  const handleSaveCreatedEvent = () => {
+    if (!user || !editFormData) return;
+    saveCreatedEventForUser(user.id, editFormData);
+    setEvent(editFormData);
+    setShowEditDialog(false);
+  };
+
+  const handleDeleteEvent = () => {
+    if (!user || !event) return;
+    if (!window.confirm('Tem certeza que deseja excluir este evento? Essa ação não pode ser desfeita.')) return;
+    deleteCreatedEventForUser(user.id, event.id);
+    navigate('/perfil');
   };
 
   const availabilityPercentage = (event.availableTickets / event.totalTickets) * 100;
@@ -92,16 +152,41 @@ export default function EventDetails() {
         </div>
 
         {/* Action Buttons */}
-        <div className="absolute top-4 right-4 z-10 flex gap-2">
-          <button
-            onClick={() => setLiked(!liked)}
-            className="w-10 h-10 bg-white/95 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform"
-          >
-            <Heart className={`w-5 h-5 ${liked ? 'fill-red-500 text-red-500' : 'text-slate-900'}`} />
-          </button>
-          <button className="w-10 h-10 bg-white/95 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform">
-            <Share2 className="w-5 h-5 text-slate-900" />
-          </button>
+        <div className="absolute top-4 right-4 z-10 flex flex-col gap-2 items-end">
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                if (warnIfOffline('curtir o evento')) return;
+                setLiked(!liked);
+              }}
+              className="w-10 h-10 bg-white/95 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+            >
+              <Heart className={`w-5 h-5 ${liked ? 'fill-red-500 text-red-500' : 'text-slate-900'}`} />
+            </button>
+            <button className="w-10 h-10 bg-white/95 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform">
+              <Share2 className="w-5 h-5 text-slate-900" />
+            </button>
+          </div>
+          {isUserCreated && (
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="h-10 px-3"
+                onClick={handleOpenEditDialog}
+              >
+                <Edit className="w-4 h-4 mr-1" /> Editar
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="h-10 px-3"
+                onClick={handleDeleteEvent}
+              >
+                <Trash className="w-4 h-4 mr-1" /> Excluir
+              </Button>
+            </div>
+          )}
         </div>
 
         <img
@@ -210,17 +295,30 @@ export default function EventDetails() {
                 <Button
                   variant="ghost"
                   size="lg"
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
                   className="h-12 w-12 rounded-xl"
+                  disabled={quantity <= 1 || event.availableTickets === 0}
                 >
                   <Minus className="w-5 h-5" />
                 </Button>
-                <span className="text-2xl font-bold w-12 text-center">{quantity}</span>
+                <input
+                  type="number"
+                  value={quantity}
+                  min={event.availableTickets > 0 ? 1 : 0}
+                  max={event.availableTickets}
+                  onChange={(e) => {
+                    const raw = parseInt(e.target.value, 10);
+                    const next = Number.isNaN(raw) ? (event.availableTickets > 0 ? 1 : 0) : raw;
+                    setQuantity(Math.min(Math.max(event.availableTickets > 0 ? 1 : 0, next), event.availableTickets));
+                  }}
+                  className="w-20 text-center text-2xl font-bold bg-transparent outline-none"
+                />
                 <Button
                   variant="ghost"
                   size="lg"
-                  onClick={() => setQuantity(Math.min(10, quantity + 1))}
+                  onClick={() => setQuantity((prev) => Math.min(event.availableTickets, prev + 1))}
                   className="h-12 w-12 rounded-xl"
+                  disabled={quantity >= event.availableTickets || event.availableTickets === 0}
                 >
                   <Plus className="w-5 h-5" />
                 </Button>
@@ -232,10 +330,14 @@ export default function EventDetails() {
                 </p>
               </div>
             </div>
+            <p className="text-sm text-slate-500 mt-2">
+              {event.availableTickets > 0
+                ? `Máximo disponível: ${event.availableTickets} ingresso${event.availableTickets === 1 ? '' : 's'}`
+                : 'Esgotado'}
+            </p>
           </CardContent>
         </Card>
 
-        {/* Featured Badge */}
         {featuredActive && (
           <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 border-yellow-200">
             <CardContent className="p-4 text-center">
@@ -251,6 +353,124 @@ export default function EventDetails() {
         )}
       </div>
 
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-3xl p-6">
+          <DialogHeader>
+            <DialogTitle>Editar evento</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(eventSubmit) => {
+              eventSubmit.preventDefault();
+              handleSaveCreatedEvent();
+            }}
+            className="space-y-4"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="event-title">Título</Label>
+                <Input
+                  id="event-title"
+                  value={editFormData?.title ?? ''}
+                  onChange={(e) => setEditFormData((prev) => prev ? { ...prev, title: e.target.value } : prev)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="event-category">Categoria</Label>
+                <Input
+                  id="event-category"
+                  value={editFormData?.category ?? 'outros'}
+                  onChange={(e) => setEditFormData((prev) => prev ? { ...prev, category: e.target.value as EventCategory } : prev)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="event-date">Data</Label>
+                <Input
+                  id="event-date"
+                  type="date"
+                  value={editFormData?.date ?? ''}
+                  onChange={(e) => setEditFormData((prev) => prev ? { ...prev, date: e.target.value } : prev)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="event-time">Horário</Label>
+                <Input
+                  id="event-time"
+                  type="time"
+                  value={editFormData?.time ?? ''}
+                  onChange={(e) => setEditFormData((prev) => prev ? { ...prev, time: e.target.value } : prev)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="event-price">Preço</Label>
+                <Input
+                  id="event-price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={editFormData?.price ?? 0}
+                  onChange={(e) => setEditFormData((prev) => prev ? { ...prev, price: Number(e.target.value) } : prev)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="event-total-tickets">Ingressos Totais</Label>
+                <Input
+                  id="event-total-tickets"
+                  type="number"
+                  min="0"
+                  value={editFormData?.totalTickets ?? 0}
+                  onChange={(e) => {
+                    const total = Number(e.target.value);
+                    setEditFormData((prev) => prev ? {
+                      ...prev,
+                      totalTickets: total,
+                      availableTickets: Math.min(prev.availableTickets, total),
+                    } : prev);
+                  }}
+                />
+              </div>
+              <div>
+                <Label htmlFor="event-available-tickets">Ingressos disponíveis</Label>
+                <Input
+                  id="event-available-tickets"
+                  type="number"
+                  min="0"
+                  max={editFormData?.totalTickets ?? 0}
+                  value={editFormData?.availableTickets ?? 0}
+                  onChange={(e) => setEditFormData((prev) => prev ? { ...prev, availableTickets: Math.min(Number(e.target.value), prev.totalTickets) } : prev)}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="event-image">URL da imagem</Label>
+              <Input
+                id="event-image"
+                type="text"
+                value={editFormData?.image ?? ''}
+                onChange={(e) => setEditFormData((prev) => prev ? { ...prev, image: e.target.value } : prev)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="event-description">Descrição</Label>
+              <textarea
+                id="event-description"
+                rows={4}
+                value={editFormData?.description ?? ''}
+                onChange={(e) => setEditFormData((prev) => prev ? { ...prev, description: e.target.value } : prev)}
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button type="button" variant="outline" onClick={() => setShowEditDialog(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" className="bg-[#305BF2] hover:bg-[#2347c9]">
+                Salvar alterações
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Fixed Bottom CTA */}
       <div className="fixed bottom-16 left-0 right-0 p-4 bg-white border-t shadow-lg">
         <div className="flex items-center gap-3">
@@ -262,6 +482,7 @@ export default function EventDetails() {
           </div>
           <Button
             onClick={handleCheckout}
+            disabled={event.availableTickets <= 0 || quantity > event.availableTickets}
             className="h-14 px-8 bg-[#305BF2] hover:bg-[#2347c9] text-lg font-semibold"
           >
             Comprar Agora

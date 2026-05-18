@@ -122,12 +122,30 @@ export default function Tours() {
     setTicketCount(1);
   };
 
+  const selectedSlotAvailable = selectedTour?.availableSlots.find(
+    (slot) => slot.date === selectedSlot?.date && slot.time === selectedSlot?.time
+  )?.available ?? 0;
+
+  useEffect(() => {
+    if (!selectedSlot) {
+      setTicketCount(1);
+      return;
+    }
+
+    setTicketCount((prev) => Math.min(Math.max(1, prev), selectedSlotAvailable || 1));
+  }, [selectedSlot, selectedSlotAvailable]);
+
   const handleConfirmBooking = () => {
     if (!selectedTour || !selectedSlot) return;
 
     // Verifica bloqueio de data
     if (blockedDates.has(selectedSlot.date)) {
       alert('Não é possível reservar neste dia: o espaço está reservado para preparação de evento/jogo.');
+      return;
+    }
+
+    if (ticketCount > selectedSlotAvailable) {
+      alert(`A quantidade selecionada ultrapassa o disponível. Máximo ${selectedSlotAvailable} ingresso(s).`);
       return;
     }
 
@@ -328,8 +346,9 @@ export default function Tours() {
                   <Button
                     variant="outline"
                     size="lg"
-                    onClick={() => setTicketCount(Math.max(1, ticketCount - 1))}
+                    onClick={() => setTicketCount((prev) => Math.max(1, prev - 1))}
                     className="h-12 w-12"
+                    disabled={ticketCount <= 1}
                   >
                     -
                   </Button>
@@ -337,18 +356,28 @@ export default function Tours() {
                     id="tickets"
                     type="number"
                     value={ticketCount}
-                    onChange={(e) => setTicketCount(Math.max(1, parseInt(e.target.value) || 1))}
+                    min={1}
+                    max={selectedSlotAvailable}
+                    onChange={(e) => {
+                      const raw = parseInt(e.target.value, 10);
+                      const next = Number.isNaN(raw) ? 1 : raw;
+                      setTicketCount(Math.min(Math.max(1, next), selectedSlotAvailable || 1));
+                    }}
                     className="text-center text-lg font-bold h-12"
                   />
                   <Button
                     variant="outline"
                     size="lg"
-                    onClick={() => setTicketCount(ticketCount + 1)}
+                    onClick={() => setTicketCount((prev) => Math.min(prev + 1, selectedSlotAvailable || prev))}
                     className="h-12 w-12"
+                    disabled={ticketCount >= selectedSlotAvailable}
                   >
                     +
                   </Button>
                 </div>
+                <p className="text-sm text-slate-500 mt-2">
+                  Máximo disponível: {selectedSlotAvailable} ingresso{selectedSlotAvailable === 1 ? '' : 's'}
+                </p>
               </div>
             )}
 

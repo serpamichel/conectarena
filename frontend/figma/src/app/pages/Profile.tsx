@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router';
-import { User, Mail, Phone, MapPin, Calendar, Ticket, Heart, Settings, LogOut, Edit, Camera, CreditCard, Bell, Shield, QrCode, X, Star, ChevronRight } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Calendar, Ticket, Heart, Settings, LogOut, Edit, Camera, CreditCard, Bell, Shield, QrCode, X, Star, ChevronRight, Trash } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchMyPurchases, type TicketPurchase } from '../services/api';
+import { fetchAllEvents, fetchMyPurchases, getCreatedEventIdsForUser, getCreatedEventsForUser, saveCreatedEventForUser, deleteCreatedEventForUser, type Event, type TicketPurchase } from '../services/api';
 
 function qrUrl(code: string) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(code)}&format=png`;
@@ -20,6 +20,10 @@ export default function Profile() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [qrTicket, setQrTicket] = useState<TicketPurchase | null>(null);
   const [tickets, setTickets] = useState<TicketPurchase[]>([]);
+  const [myEvents, setMyEvents] = useState<Event[]>([]);
+  const [myEventsLoading, setMyEventsLoading] = useState(true);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [editFormData, setEditFormData] = useState<Event | null>(null);
   const [userData, setUserData] = useState({
     name: user?.name || 'Usuário',
     email: user?.email || '',
@@ -33,12 +37,51 @@ export default function Profile() {
     fetchMyPurchases(user.id).then(setTickets).catch(() => {});
   }, [user]);
 
+  useEffect(() => {
+    if (!user) {
+      setMyEvents([]);
+      setMyEventsLoading(false);
+      return;
+    }
+
+    setMyEventsLoading(true);
+    const myCreatedIds = getCreatedEventIdsForUser(user.id);
+    const storedEvents = getCreatedEventsForUser(user.id);
+    if (myCreatedIds.length === 0) {
+      setMyEvents([]);
+      setMyEventsLoading(false);
+      return;
+    }
+
+    fetchAllEvents()
+      .then((events) => {
+        const backendEvents = events
+          .filter((event) => myCreatedIds.includes(event.id))
+          .map((event) => ({ ...event, ...(storedEvents[event.id] ?? {}) }));
+
+        const localOnlyEvents = Object.keys(storedEvents)
+          .filter((id) => !backendEvents.some((event) => event.id === id))
+          .map((id) => storedEvents[id]);
+
+        setMyEvents([...backendEvents, ...localOnlyEvents]);
+      })
+      .catch(() => setMyEvents(Object.values(storedEvents)))
+      .finally(() => setMyEventsLoading(false));
+  }, [user]);
+
   const totalSpent = tickets.reduce((sum, t) => sum + t.totalPago, 0);
   const upcomingCount = tickets.filter(t => new Date(t.evento.data) >= new Date()).length;
   const recentTickets = tickets.slice(0, 3);
 
   const handleSaveProfile = () => {
     setShowEditDialog(false);
+  };
+
+  const handleDeleteCreatedEvent = (eventId: string) => {
+    if (!user) return;
+    if (!window.confirm('Tem certeza que deseja excluir este evento? Essa ação não pode ser desfeita.')) return;
+    deleteCreatedEventForUser(user.id, eventId);
+    setMyEvents((prev) => prev.filter((event) => event.id !== eventId));
   };
 
   const handleLogout = () => {
@@ -126,6 +169,84 @@ export default function Profile() {
               <p className="text-xs text-slate-600">Total gasto</p>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Meus Eventos */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-lg font-bold">Meus Eventos</h2>
+              <p className="text-sm text-slate-500">Eventos cadastrados por você</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 px-3 text-sm"
+              onClick={() => navigate('/admin/criar-evento')}
+            >
+              Novo evento
+            </Button>
+          </div>
+
+          {myEventsLoading ? (
+            <Card>
+              <CardContent className="py-8 text-center text-slate-500">Carregando eventos...</CardContent>
+            </Card>
+          ) : myEvents.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <p className="text-sm text-slate-500 mb-3">
+                  {user ? 'Você ainda não cadastrou eventos.' : 'Faça login para ver os seus eventos cadastrados.'}
+                </p>
+                <Button size="sm" className="bg-[#305BF2] hover:bg-[#2347c9]" onClick={() => navigate('/admin/criar-evento')}>
+                  Cadastrar Evento
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {myEvents.map((event) => (
+                <Card key={event.id} className="overflow-hidden">
+                  <div className="flex flex-col gap-3 p-3">
+                    <Link to={`/evento/${event.id}`} className="flex gap-3">
+                      <img
+                        src={event.image}
+                        alt={event.title}
+                        className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-sm mb-1 line-clamp-2">{event.title}</h3>
+                        <p className="text-xs text-slate-500 mb-2">{event.category.charAt(0).toUpperCase() + event.category.slice(1)}</p>
+                        <div className="text-xs text-slate-500">{new Date(event.date).toLocaleDateString('pt-BR')} • {event.time}</div>
+                      </div>
+                    </Link>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-9 text-xs border-slate-200 text-slate-700"
+                        onClick={() => {
+                          setEditingEvent(event);
+                          setEditFormData(event);
+                        }}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-9 text-xs border-red-200 text-red-600 hover:bg-red-50"
+                        onClick={() => handleDeleteCreatedEvent(event.id)}
+                      >
+                        <Trash className="w-3.5 h-3.5" />
+                        Excluir
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Meus Ingressos */}
@@ -278,6 +399,161 @@ export default function Profile() {
           Sair da Conta
         </Button>
       </div>
+
+      {/* Edit Event Dialog */}
+      <Dialog open={!!editingEvent} onOpenChange={(open) => { if (!open) setEditingEvent(null); }}>
+        <DialogContent className="max-w-[95vw] w-full max-h-[85vh] overflow-y-auto rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Editar Evento</DialogTitle>
+          </DialogHeader>
+          {editFormData ? (
+            <form
+              className="space-y-4 py-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!user || !editFormData) return;
+                saveCreatedEventForUser(user.id, editFormData);
+                setMyEvents((prev) => prev.map((event) => event.id === editFormData.id ? editFormData : event));
+                setEditingEvent(null);
+              }}
+            >
+              <div>
+                <Label htmlFor="edit-title" className="text-sm font-semibold mb-2 block">
+                  Nome do Evento
+                </Label>
+                <Input
+                  id="edit-title"
+                  value={editFormData.title}
+                  onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                  className="h-12"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-description" className="text-sm font-semibold mb-2 block">
+                  Descrição
+                </Label>
+                <textarea
+                  id="edit-description"
+                  rows={4}
+                  value={editFormData.description}
+                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#305BF2] outline-none resize-none"
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-date" className="text-sm font-semibold mb-2 block">
+                    Data
+                  </Label>
+                  <Input
+                    id="edit-date"
+                    type="date"
+                    value={editFormData.date}
+                    onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
+                    className="h-12"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-time" className="text-sm font-semibold mb-2 block">
+                    Horário
+                  </Label>
+                  <Input
+                    id="edit-time"
+                    type="time"
+                    value={editFormData.time}
+                    onChange={(e) => setEditFormData({ ...editFormData, time: e.target.value })}
+                    className="h-12"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-category" className="text-sm font-semibold mb-2 block">
+                    Categoria
+                  </Label>
+                  <select
+                    id="edit-category"
+                    value={editFormData.category}
+                    onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value as Event['category'] })}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#305BF2] outline-none"
+                  >
+                    <option value="futebol">Futebol</option>
+                    <option value="musica">Música</option>
+                    <option value="teatro">Teatro</option>
+                    <option value="outros">Outros</option>
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="edit-image" className="text-sm font-semibold mb-2 block">
+                    URL da Imagem
+                  </Label>
+                  <Input
+                    id="edit-image"
+                    value={editFormData.image}
+                    onChange={(e) => setEditFormData({ ...editFormData, image: e.target.value })}
+                    className="h-12"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-price" className="text-sm font-semibold mb-2 block">
+                    Preço
+                  </Label>
+                  <Input
+                    id="edit-price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editFormData.price}
+                    onChange={(e) => setEditFormData({ ...editFormData, price: Number(e.target.value) })}
+                    className="h-12"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-totalTickets" className="text-sm font-semibold mb-2 block">
+                    Total de Ingressos
+                  </Label>
+                  <Input
+                    id="edit-totalTickets"
+                    type="number"
+                    min="0"
+                    value={editFormData.totalTickets}
+                    onChange={(e) => setEditFormData({ ...editFormData, totalTickets: Number(e.target.value) })}
+                    className="h-12"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 justify-between pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditingEvent(null)}
+                  className="h-12"
+                >
+                  Cancelar
+                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    className="h-12"
+                    onClick={() => editingEvent && handleDeleteCreatedEvent(editingEvent.id)}
+                  >
+                    Excluir
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="h-12 bg-[#305BF2] hover:bg-[#2347c9]"
+                  >
+                    Salvar alterações
+                  </Button>
+                </div>
+              </div>
+            </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Profile Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
