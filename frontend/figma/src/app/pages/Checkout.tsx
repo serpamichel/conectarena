@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useSearchParams, Link } from 'react-router';
+import { useParams, useSearchParams, Link, useNavigate } from 'react-router';
 import { ArrowLeft, CheckCircle2, CreditCard, Smartphone, Ticket, Calendar, MapPin } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
@@ -14,6 +14,7 @@ export default function Checkout() {
   const [searchParams] = useSearchParams();
   const quantity = parseInt(searchParams.get('quantity') || '1');
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [event, setEvent] = useState<Event | null>(null);
   const [loadingEvent, setLoadingEvent] = useState(true);
@@ -55,6 +56,11 @@ export default function Checkout() {
   const taxRate = 10;
 
   const handlePayment = async () => {
+    if (!user) {
+      // redireciona para login com retorno ao checkout
+      navigate(`/login?redirect=/checkout/${id}?quantity=${quantity}`);
+      return;
+    }
     setIsProcessing(true);
     setError(null);
     try {
@@ -67,7 +73,13 @@ export default function Checkout() {
       });
       setPurchase(result);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao processar pagamento');
+      const msg = e instanceof Error ? e.message : 'Erro ao processar pagamento';
+      if (msg.includes('login')) {
+        // Se backend indicou necessidade de login, redireciona
+        navigate(`/login?redirect=/checkout/${id}?quantity=${quantity}`);
+        return;
+      }
+      setError(msg);
     } finally {
       setIsProcessing(false);
     }

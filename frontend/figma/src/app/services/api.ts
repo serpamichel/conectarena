@@ -78,8 +78,11 @@ export async function createPurchase(params: {
     body: JSON.stringify(params),
   });
   if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      throw new Error('Não autorizado. É necessário fazer login para concluir a compra.');
+    }
     const err = await res.json().catch(() => ({}));
-    throw new Error((err as { erro?: string }).erro ?? 'Falha ao processar compra');
+    throw new Error((err as { erro?: string }).erro ?? `Falha ao processar compra (status ${res.status})`);
   }
   return res.json();
 }

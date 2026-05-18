@@ -3,6 +3,7 @@ package br.com.conectarena.plataforma.Controller;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.logging.Logger;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -24,6 +25,8 @@ import br.com.conectarena.plataforma.Service.EventService;
 @CrossOrigin(origins = "http://localhost:5173")
 public class EventController {
 
+    private static final Logger logger = Logger.getLogger(EventController.class.getName());
+
     @Autowired
     private EventService eventService;
 
@@ -32,6 +35,22 @@ public class EventController {
     public ResponseEntity<Event> createEvent(@RequestBody Event event) {
         Event savedEvent = eventService.createEvent(event);
         return ResponseEntity.ok(savedEvent);
+    }
+
+    // Endpoint para listar todos os eventos (deve vir antes de /{id})
+    @GetMapping("/all")
+    public ResponseEntity<List<Event>> getAllEvents() {
+        List<Event> events = eventService.getAllEvents();
+        logger.info("Retornando " + events.size() + " eventos no /all");
+        return ResponseEntity.ok(events);
+    }
+
+    // Endpoint para buscar evento por ID
+    @GetMapping("/{id}")
+    public ResponseEntity<Event> getEventById(@PathVariable Long id) {
+        logger.info("Buscando evento por ID: " + id);
+        Optional<Event> event = eventService.getEventById(id);
+        return event.map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
     // Endpoint para pesquisar eventos (página inicial)
@@ -43,17 +62,14 @@ public class EventController {
         return ResponseEntity.ok(events);
     }
 
-    // Endpoint para buscar evento por ID
-    @GetMapping("/{id}")
-    public ResponseEntity<Event> getEventById(@PathVariable Long id) {
-        Optional<Event> event = eventService.getEventById(id);
-        return event.map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
-    }
-
-    // Endpoint para listar todos os eventos
-    @GetMapping("/all")
-    public ResponseEntity<List<Event>> getAllEvents() {
+    // Endpoint de diagnóstico
+    @GetMapping("/health/status")
+    public ResponseEntity<java.util.Map<String, Object>> getStatus() {
         List<Event> events = eventService.getAllEvents();
-        return ResponseEntity.ok(events);
+        return ResponseEntity.ok(java.util.Map.of(
+            "status", "OK",
+            "totalEventos", events.size(),
+            "eventos", events
+        ));
     }
 }
