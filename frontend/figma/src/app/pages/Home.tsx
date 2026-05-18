@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { Search, Calendar, MapPin, TrendingUp, Music, Theater, Trophy, Grid3x3, ChevronRight } from 'lucide-react';
 import { Input } from '../components/ui/input';
+import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent } from '../components/ui/card';
 import { type Event, type EventCategory } from '../data/mockData';
@@ -15,13 +16,33 @@ export default function Home() {
   const [now, setNow] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<'network' | 'server' | null>(null);
   const categoryParam = searchParams.get('categoria') as EventCategory | null;
 
-  useEffect(() => {
+  const loadEvents = () => {
+    setLoading(true);
+    setError(null);
+    setErrorType(null);
+
     fetchAllEvents()
-      .then(setEvents)
-      .catch(() => setError('Não foi possível carregar os eventos. O servidor está rodando?'))
+      .then((evts) => {
+        setEvents(evts);
+      })
+      .catch((err: unknown) => {
+        // Quando a fetch falha por falta de conexão ela rejeita com TypeError
+        if (!navigator.onLine || (err instanceof TypeError)) {
+          setErrorType('network');
+          setError('Não há conexão com a internet. Verifique sua rede e tente novamente.');
+        } else {
+          setErrorType('server');
+          setError('Não foi possível carregar os eventos. O servidor está rodando?');
+        }
+      })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadEvents();
   }, []);
 
   useEffect(() => {
@@ -179,11 +200,24 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Error Banner */}
-      {error && (
+      {/* Error Banner / Network Empty State */}
+      {error && errorType === 'server' && (
         <div className="mx-4 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
           {error}
         </div>
+      )}
+
+      {!loading && error && errorType === 'network' && (
+        <section className="px-4 py-12 text-center">
+          <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Search className="w-10 h-10 text-slate-400" />
+          </div>
+          <h3 className="text-lg font-bold mb-2">Erro de conexão</h3>
+          <p className="text-slate-500 mb-4">Não foi possível conectar à internet. Verifique sua conexão e tente novamente.</p>
+          <div className="flex items-center justify-center gap-3">
+            <Button onClick={() => loadEvents()} variant="default">Recarregar</Button>
+          </div>
+        </section>
       )}
 
       {/* Loading Skeleton */}
@@ -276,13 +310,22 @@ export default function Home() {
           </h2>
 
           {rankedEvents.length === 0 ? (
-            <div className="text-center py-12">
+            <div className="text-center py-12 px-4">
               <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Search className="w-10 h-10 text-slate-400" />
               </div>
-              <p className="text-slate-500 text-base">
-                Nenhum evento encontrado
-              </p>
+              {searchQuery ? (
+                <>
+                  <h3 className="text-lg font-bold mb-2">Nenhum evento encontrado para esta busca</h3>
+                  <p className="text-slate-500 mb-4">Tente verificar a ortografia, usar termos mais gerais ou remover filtros. Você também pode ver os eventos em destaque abaixo.</p>
+                  <div className="flex items-center justify-center gap-3">
+                    <Button variant="outline" onClick={() => { setSearchQuery(''); setSearchParams({}); }}>Ver destaques</Button>
+                    <Button variant="ghost" onClick={() => setSearchQuery('')}>Limpar busca</Button>
+                  </div>
+                </>
+              ) : (
+                <p className="text-slate-500 text-base">Nenhum evento encontrado</p>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
