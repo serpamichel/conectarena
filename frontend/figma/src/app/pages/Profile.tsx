@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router';
-import { User, Mail, Phone, MapPin, Calendar, Ticket, Heart, Settings, LogOut, Edit, Camera, CreditCard, Bell, Shield, QrCode, X, ChevronRight } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Calendar, Ticket, Heart, Settings, LogOut, Edit, Camera, CreditCard, Bell, Shield, QrCode, X, Star, ChevronRight } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -63,13 +63,22 @@ export default function Profile() {
           </div>
           <h1 className="text-2xl font-bold mb-1">{userData.name}</h1>
           <p className="text-blue-100 text-sm mb-4">{userData.email}</p>
-          <Button
-            onClick={() => setShowEditDialog(true)}
-            className="bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 text-white h-10 px-6"
-          >
-            <Edit className="w-4 h-4 mr-2" />
-            Editar Perfil
-          </Button>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Button
+              onClick={() => setShowEditDialog(true)}
+              className="bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 text-white h-10 px-6"
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              Editar Perfil
+            </Button>
+            <Button
+              onClick={() => navigate('/admin/criar-evento')}
+              className="group bg-gradient-to-r from-[#305BF2] to-[#1f4ecf] text-white shadow-xl shadow-[#305BF2]/20 h-10 px-6 border border-transparent hover:from-[#1f4ecf] hover:to-[#2347c9] transition-transform duration-300 ease-out hover:scale-[1.02]"
+            >
+              <Star className="w-4 h-4 mr-2 text-amber-200 drop-shadow-[0_0_8px_rgba(255,255,255,0.35)] transition duration-300 ease-out group-hover:text-amber-100 group-hover:drop-shadow-[0_0_16px_rgba(255,255,255,0.7)] group-hover:animate-pulse" />
+              Publicar Evento
+            </Button>
+          </div>
         </div>
       </div>
 

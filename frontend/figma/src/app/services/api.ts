@@ -133,7 +133,37 @@ export interface AnalyticsData {
 export async function fetchAnalytics(): Promise<AnalyticsData> {
   const res = await authFetch('/api/purchases/analytics');
   if (!res.ok) throw new Error('Falha ao buscar analytics');
-  return res.json();
+  const json = await res.json().catch(() => ({}));
+
+  // Normalizar campos faltantes para evitar erros quando o backend retornar objeto parcial
+  const defaultSalesByCategory = [
+    { name: 'Futebol', value: 0 },
+    { name: 'Música', value: 0 },
+    { name: 'Teatro', value: 0 },
+    { name: 'Outros', value: 0 },
+  ];
+
+  const defaultSalesByDay = [
+    { day: 'Seg', vendas: 0 },
+    { day: 'Ter', vendas: 0 },
+    { day: 'Qua', vendas: 0 },
+    { day: 'Qui', vendas: 0 },
+    { day: 'Sex', vendas: 0 },
+    { day: 'Sáb', vendas: 0 },
+    { day: 'Dom', vendas: 0 },
+  ];
+
+  return {
+    eventMetrics: json.eventMetrics ?? [],
+    totalRevenue: Number(json.totalRevenue ?? 0),
+    ticketsSold: Number(json.ticketsSold ?? 0),
+    totalEvents: Number(json.totalEvents ?? 0),
+    ticketMedio: Number(json.ticketMedio ?? 0),
+    salesByCategory: json.salesByCategory ?? defaultSalesByCategory,
+    topEvents: json.topEvents ?? [],
+    salesByDay: json.salesByDay ?? defaultSalesByDay,
+    salesByMonth: json.salesByMonth ?? [],
+  };
 }
 
 export interface ApiPost {

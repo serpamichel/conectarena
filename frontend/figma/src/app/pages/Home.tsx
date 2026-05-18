@@ -8,7 +8,6 @@ import { Card, CardContent } from '../components/ui/card';
 import { type Event, type EventCategory } from '../data/mockData';
 import { fetchAllEvents } from '../services/api';
 import { isFeaturedActive } from '../utils/featured';
-
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');

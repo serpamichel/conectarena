@@ -52,12 +52,6 @@ export default function Analytics() {
         <p className="text-blue-100 leading-relaxed mb-4">
           Acompanhe métricas e desempenho em tempo real
         </p>
-        <button 
-          onClick={() => window.location.href = '/admin/criar-evento'}
-          className="bg-[#305BF2] hover:bg-[#2347c9] text-white font-medium px-4 py-2 rounded-xl text-sm transition-colors shadow-lg"
-        >
-          + Publicar Evento
-        </button>
       </div>
 
       {loading ? (
