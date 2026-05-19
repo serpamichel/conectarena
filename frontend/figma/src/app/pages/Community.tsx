@@ -6,8 +6,8 @@ import { Badge } from '../components/ui/badge';
 import { Textarea } from '../components/ui/textarea';
 import { Edit, Trash } from 'lucide-react';
 import { communityGroups } from '../data/communityData';
-import { addPostComment, fetchPosts, createPost, togglePostLike, getEditedPostsForUser, saveEditedPostForUser, getDeletedPostIdsForUser, markPostDeletedForUser, type ApiPost } from '../services/api';
-import { containsProfanity } from '../utils/profanity';
+import { addPostComment, fetchPosts, createPost, togglePostLike, getEditedPostsForUser, saveEditedPostForUser, getDeletedPostIdsForUser, markPostDeletedForUser, fetchPostComments, type ApiPost, type ApiComment } from '../services/api';
+import containsProfanity from '../utils/profanity';
 import { warnIfOffline } from '../utils/offline';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { useAuth } from '../contexts/AuthContext';
@@ -32,6 +32,7 @@ export default function Community() {
   const [showNewPost, setShowNewPost] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({});
+  const [commentsByPost, setCommentsByPost] = useState<Record<number, ApiComment[]>>({});
   const [commentingPostId, setCommentingPostId] = useState<number | null>(null);
   const [commentSubmitting, setCommentSubmitting] = useState<number | null>(null);
   const [joinedGroups, setJoinedGroups] = useState<Set<string>>(new Set());
@@ -99,7 +100,15 @@ export default function Community() {
       setPosts((prev) => prev.filter((p) => p.id !== postId));
     };
   const handleToggleComment = (postId: number) => {
-    setCommentingPostId((prev) => (prev === postId ? null : postId));
+    setCommentingPostId((prev) => {
+      const next = prev === postId ? null : postId;
+      if (next != null && !commentsByPost[postId]) {
+        fetchPostComments(postId)
+          .then((list) => setCommentsByPost((p) => ({ ...p, [postId]: list })))
+          .catch(() => setCommentsByPost((p) => ({ ...p, [postId]: [] })));
+      }
+      return next;
+    });
   };
 
   const handleCommentChange = (postId: number, text: string) => {
@@ -125,12 +134,15 @@ export default function Community() {
         authorName: user.name,
         text: draft,
       });
-      setPosts((prev) =>
-        prev.map((p) =>
-          p.id === postId ? { ...p, comments: result.comments } : p
-        )
-      );
+      setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, comments: result.comments } : p)));
       setCommentDrafts((prev) => ({ ...prev, [postId]: '' }));
+      // refresh comments list
+      try {
+        const list = await fetchPostComments(postId);
+        setCommentsByPost((p) => ({ ...p, [postId]: list }));
+      } catch {
+        // ignore
+      }
     } catch {
       // silently ignore comment errors
     } finally {
@@ -361,7 +373,19 @@ export default function Community() {
                     </div>
 
                     {commentingPostId === post.id && (
-                      <div className="mt-3 space-y-2">
+                                      <div className="mt-3 space-y-2">
+                                        {/* Comments List */}
+                                        <div className="space-y-2">
+                                          {(commentsByPost[post.id] ?? []).map((c) => (
+                                            <div key={c.id} className="bg-slate-50 p-3 rounded">
+                                              <div className="flex items-center gap-2 mb-1">
+                                                <span className="font-semibold text-sm">{c.authorName}</span>
+                                                <span className="text-xs text-slate-500">{timeAgo(c.createdAt)}</span>
+                                              </div>
+                                              <div className="text-sm text-slate-700">{c.content}</div>
+                                            </div>
+                                          ))}
+                                        </div>
                         <Textarea
                           placeholder="Escreva seu comentário..."
                           value={commentDrafts[post.id] ?? ''}

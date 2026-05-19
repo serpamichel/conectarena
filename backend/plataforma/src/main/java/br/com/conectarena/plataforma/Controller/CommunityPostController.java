@@ -64,4 +64,10 @@ public class CommunityPostController {
             return ResponseEntity.badRequest().body(Map.of("erro", e.getMessage()));
         }
     }
+
+    @GetMapping("/{id}/comments")
+    public ResponseEntity<List<Comment>> getComments(@PathVariable Long id) {
+        List<Comment> comments = postService.getCommentsForPost(id);
+        return ResponseEntity.ok(comments);
+    }
 }

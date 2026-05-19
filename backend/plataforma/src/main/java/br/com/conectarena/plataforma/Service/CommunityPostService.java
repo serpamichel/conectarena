@@ -36,7 +36,7 @@ public class CommunityPostService {
     }
 
     public CommunityPost createPost(String authorId, String authorName, String authorAvatar,
-                                    String content, List<String> tags) {
+            String content, List<String> tags) {
         CommunityPost post = new CommunityPost();
         post.setAuthorId(authorId);
         post.setAuthorName(authorName);
@@ -85,5 +85,9 @@ public class CommunityPostService {
             post.setLikedByMe(true);
         }
         return postRepository.save(post);
+    }
+
+    public List<Comment> getCommentsForPost(Long postId) {
+        return commentRepository.findByPostIdOrderByCreatedAtAsc(postId);
     }
 }

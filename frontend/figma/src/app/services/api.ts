@@ -285,6 +285,15 @@ export interface ApiPost {
   likedByMe: boolean;
 }
 
+export interface ApiComment {
+  id: number;
+  postId: number;
+  authorId: string;
+  authorName: string;
+  content: string;
+  createdAt: string;
+}
+
 export async function fetchPosts(userId?: string): Promise<ApiPost[]> {
   const url = userId ? `/api/posts?userId=${userId}` : '/api/posts';
   const res = await authFetch(url);
@@ -354,6 +363,12 @@ export async function addPostComment(params: {
     body: JSON.stringify(params),
   });
   if (!res.ok) throw new Error('Falha ao enviar comentário');
+  return res.json();
+}
+
+export async function fetchPostComments(postId: number): Promise<ApiComment[]> {
+  const res = await authFetch(`/api/posts/${postId}/comments`);
+  if (!res.ok) throw new Error('Falha ao buscar comentários');
   return res.json();
 }
 
