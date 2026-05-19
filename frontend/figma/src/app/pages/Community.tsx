@@ -38,6 +38,7 @@ export default function Community() {
   const [editingPostId, setEditingPostId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState('');
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const newPostHasProfanity = containsProfanity(newPost);
 
   useEffect(() => {
     fetchPosts(user?.id)
@@ -68,15 +69,15 @@ export default function Community() {
     } catch {
       // silently ignore like errors
     }
-    };
+  };
 
-    const openEditPost = (post: ApiPost) => {
-      setEditingPostId(post.id);
-      setEditDraft(post.content);
-      setShowEditDialog(true);
-    };
+  const openEditPost = (post: ApiPost) => {
+    setEditingPostId(post.id);
+    setEditDraft(post.content);
+    setShowEditDialog(true);
+  };
 
-    const handleSaveEdit = () => {
+  const handleSaveEdit = () => {
       if (!user || editingPostId == null) return;
       if (containsProfanity(editDraft)) {
         window.alert('Seu post contém linguagem proibida. Remova palavras chulas para continuar.');
@@ -170,9 +171,6 @@ export default function Community() {
     }
   };
 
-
-  };
-
   return (
     <div className="bg-slate-50 min-h-screen">
       {/* Tabs */}
@@ -223,6 +221,11 @@ export default function Community() {
                   className="min-h-[100px] text-base resize-none"
                   autoFocus
                 />
+                {newPostHasProfanity && (
+                  <p className="text-sm text-rose-600">
+                    Seu post contém linguagem proibida. Remova palavras chulas para continuar.
+                  </p>
+                )}
                 <div className="flex gap-2 justify-end">
                   <Button
                     variant="outline"
@@ -233,7 +236,7 @@ export default function Community() {
                   </Button>
                   <Button
                     onClick={handleCreatePost}
-                    disabled={!newPost.trim() || publishing}
+                    disabled={!newPost.trim() || publishing || newPostHasProfanity}
                     className="bg-[#305BF2] hover:bg-[#2347c9] h-11 px-6"
                   >
                     {publishing ? (
@@ -365,6 +368,11 @@ export default function Community() {
                           onChange={(e) => handleCommentChange(post.id, e.target.value)}
                           className="min-h-[70px] text-sm resize-none"
                         />
+                        {containsProfanity(commentDrafts[post.id] ?? '') && (
+                          <p className="text-sm text-rose-600">
+                            Seu comentário contém linguagem proibida. Remova palavras chulas para continuar.
+                          </p>
+                        )}
                         <div className="flex justify-end gap-2">
                           <Button
                             variant="outline"
@@ -376,7 +384,9 @@ export default function Community() {
                           <Button
                             onClick={() => handleSendComment(post.id)}
                             disabled={
-                              !commentDrafts[post.id]?.trim() || commentSubmitting === post.id
+                              !commentDrafts[post.id]?.trim() ||
+                              commentSubmitting === post.id ||
+                              containsProfanity(commentDrafts[post.id] ?? '')
                             }
                             className="bg-[#305BF2] hover:bg-[#2347c9] h-10 px-5"
                           >
