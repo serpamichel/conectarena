@@ -2,6 +2,7 @@ package br.com.conectarena.plataforma.Model;
 
 import br.com.conectarena.plataforma.Config.CryptoConverter;
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import org.springframework.security.core.GrantedAuthority;
@@ -29,6 +30,18 @@ public class Usuario implements UserDetails {
     @Column(nullable = false)
     private String role;
 
+    @Column(nullable = false)
+    private boolean consentimentoLgpd = false;
+
+    @Column
+    private LocalDateTime dataConsentimento;
+
+    @Column(nullable = false)
+    private boolean ativo = true;
+
+    @Column
+    private LocalDateTime dataSolicitacaoExclusao;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -44,6 +57,18 @@ public class Usuario implements UserDetails {
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
 
+    public boolean isConsentimentoLgpd() { return consentimentoLgpd; }
+    public void setConsentimentoLgpd(boolean consentimentoLgpd) { this.consentimentoLgpd = consentimentoLgpd; }
+
+    public LocalDateTime getDataConsentimento() { return dataConsentimento; }
+    public void setDataConsentimento(LocalDateTime dataConsentimento) { this.dataConsentimento = dataConsentimento; }
+
+    public boolean isAtivo() { return ativo; }
+    public void setAtivo(boolean ativo) { this.ativo = ativo; }
+
+    public LocalDateTime getDataSolicitacaoExclusao() { return dataSolicitacaoExclusao; }
+    public void setDataSolicitacaoExclusao(LocalDateTime data) { this.dataSolicitacaoExclusao = data; }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority(role));
@@ -54,4 +79,7 @@ public class Usuario implements UserDetails {
 
     @Override
     public String getUsername() { return email; }
+
+    @Override
+    public boolean isEnabled() { return ativo; }
 }

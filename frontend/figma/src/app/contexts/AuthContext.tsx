@@ -4,13 +4,14 @@ interface User {
   id: string;
   name: string;
   email: string;
+  role: string;
   avatar?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string) => Promise<void>;
+  signup: (name: string, email: string, password: string, aceitouLgpd: boolean) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -42,7 +43,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (!response.ok) {
-      throw new Error('Email ou senha inválidos');
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 429) {
+        throw new Error(data.mensagem || 'Conta bloqueada temporariamente. Tente novamente em 15 minutos.');
+      }
+      const tentativas = data.tentativasRestantes;
+      const msg = data.erro || 'Email ou senha inválidos';
+      throw new Error(tentativas !== undefined ? `${msg} (${tentativas} tentativa${tentativas === 1 ? '' : 's'} restante${tentativas === 1 ? '' : 's'})` : msg);
     }
 
     const data = await response.json();
@@ -52,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       id: email,
       name: data.nome,
       email,
+      role: data.role || 'USER',
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
     };
 
@@ -59,11 +67,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('conectarena_user', JSON.stringify(loggedUser));
   };
 
-  const signup = async (name: string, email: string, password: string) => {
+  const signup = async (name: string, email: string, password: string, aceitouLgpd: boolean) => {
     const response = await fetch('/api/auth/cadastro', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nome: name, email, senha: password }),
+      body: JSON.stringify({ nome: name, email, senha: password, aceitouLgpd }),
     });
 
     if (!response.ok) {
@@ -78,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       id: email,
       name: data.nome,
       email,
+      role: data.role || 'USER',
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
     };
 

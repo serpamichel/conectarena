@@ -18,6 +18,19 @@ export default function Profile() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showAdminDialog, setShowAdminDialog] = useState(false);
+  const [adminAba, setAdminAba] = useState<'sistema' | 'fornecedores'>('sistema');
+  const [backupStatus, setBackupStatus] = useState('');
+  const [backupLista, setBackupLista] = useState<string[]>([]);
+  const [healthStatus, setHealthStatus] = useState<Record<string, any> | null>(null);
+  const [fornecedores, setFornecedores] = useState<any[]>([]);
+  const [showNovoFornecedor, setShowNovoFornecedor] = useState(false);
+  const [novoFornecedor, setNovoFornecedor] = useState({ nome: '', tipoServico: '', cnpj: '', emailContato: '', conformeLgpd: false, observacoes: '' });
+  const [showLgpdDialog, setShowLgpdDialog] = useState(false);
+  const [showExclusaoConfirm, setShowExclusaoConfirm] = useState(false);
+  const [lgpdData, setLgpdData] = useState<Record<string, string> | null>(null);
+  const [lgpdLoading, setLgpdLoading] = useState(false);
+  const [lgpdMensagem, setLgpdMensagem] = useState('');
   const [qrTicket, setQrTicket] = useState<TicketPurchase | null>(null);
   const [tickets, setTickets] = useState<TicketPurchase[]>([]);
   const [myEvents, setMyEvents] = useState<Event[]>([]);
@@ -87,6 +100,99 @@ export default function Profile() {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleAbrirAdmin = async () => {
+    setShowAdminDialog(true);
+    setAdminAba('sistema');
+    setBackupStatus('');
+    setBackupLista([]);
+    setHealthStatus(null);
+    const token = localStorage.getItem('conectarena_token');
+    const [healthRes, listaRes, fornRes] = await Promise.all([
+      fetch('/api/status/health'),
+      fetch('/api/backup/listar', { headers: { Authorization: `Bearer ${token}` } }),
+      fetch('/api/fornecedores', { headers: { Authorization: `Bearer ${token}` } }),
+    ]);
+    if (healthRes.ok) setHealthStatus(await healthRes.json());
+    if (listaRes.ok) setBackupLista(await listaRes.json());
+    if (fornRes.ok) setFornecedores(await fornRes.json());
+  };
+
+  const handleCadastrarFornecedor = async () => {
+    const token = localStorage.getItem('conectarena_token');
+    const res = await fetch('/api/fornecedores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(novoFornecedor),
+    });
+    if (res.ok) {
+      const criado = await res.json();
+      setFornecedores(prev => [criado, ...prev]);
+      setNovoFornecedor({ nome: '', tipoServico: '', cnpj: '', emailContato: '', conformeLgpd: false, observacoes: '' });
+      setShowNovoFornecedor(false);
+    }
+  };
+
+  const handleDesativarFornecedor = async (id: number) => {
+    const token = localStorage.getItem('conectarena_token');
+    const res = await fetch(`/api/fornecedores/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      setFornecedores(prev => prev.map(f => f.id === id ? { ...f, status: 'INATIVO' } : f));
+    }
+  };
+
+  const handleExecutarBackup = async () => {
+    setBackupStatus('Executando...');
+    try {
+      const token = localStorage.getItem('conectarena_token');
+      const res = await fetch('/api/backup/executar', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setBackupStatus(data.mensagem || 'Backup realizado!');
+      const listaRes = await fetch('/api/backup/listar', { headers: { Authorization: `Bearer ${token}` } });
+      if (listaRes.ok) setBackupLista(await listaRes.json());
+    } catch {
+      setBackupStatus('Erro ao realizar backup.');
+    }
+  };
+
+  const handleAbrirLgpd = async () => {
+    setShowLgpdDialog(true);
+    setLgpdMensagem('');
+    setLgpdLoading(true);
+    try {
+      const token = localStorage.getItem('conectarena_token');
+      const res = await fetch('/api/lgpd/meus-dados', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setLgpdData(data);
+    } catch {
+      setLgpdData(null);
+    } finally {
+      setLgpdLoading(false);
+    }
+  };
+
+  const handleSolicitarExclusao = async () => {
+    setShowExclusaoConfirm(false);
+    try {
+      const token = localStorage.getItem('conectarena_token');
+      const res = await fetch('/api/lgpd/solicitar-exclusao', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setLgpdMensagem(data.mensagem || 'Solicitação registrada.');
+    } catch {
+      setLgpdMensagem('Erro ao processar solicitação.');
+    }
   };
 
   return (
@@ -373,9 +479,17 @@ export default function Profile() {
                   <div className="w-4 h-4 bg-white rounded-full ml-auto"></div>
                 </div>
               </button>
-              <button className="w-full flex items-center gap-3 p-3 rounded-lg active:bg-slate-50 transition-colors">
+              {user?.role === 'ADMIN' && (
+                <button onClick={handleAbrirAdmin} className="w-full flex items-center gap-3 p-3 rounded-lg active:bg-slate-50 transition-colors">
+                  <Settings className="w-5 h-5 text-[#305BF2]" />
+                  <span className="flex-1 text-left font-medium text-[#305BF2]">Painel Administrativo</span>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </button>
+              )}
+              <button onClick={handleAbrirLgpd} className="w-full flex items-center gap-3 p-3 rounded-lg active:bg-slate-50 transition-colors">
                 <Shield className="w-5 h-5 text-slate-600" />
-                <span className="flex-1 text-left">Privacidade</span>
+                <span className="flex-1 text-left">Privacidade e LGPD</span>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
               </button>
               <button className="w-full flex items-center gap-3 p-3 rounded-lg active:bg-slate-50 transition-colors">
                 <CreditCard className="w-5 h-5 text-slate-600" />
@@ -621,6 +735,243 @@ export default function Profile() {
               >
                 Salvar
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Painel Administrativo */}
+      <Dialog open={showAdminDialog} onOpenChange={setShowAdminDialog}>
+        <DialogContent className="max-w-[95vw] w-full max-h-[85vh] overflow-y-auto rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings className="w-5 h-5 text-[#305BF2]" />
+              Painel Administrativo
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Abas */}
+          <div className="flex gap-2 border-b border-slate-200 mb-4">
+            {(['sistema', 'fornecedores'] as const).map(aba => (
+              <button
+                key={aba}
+                onClick={() => setAdminAba(aba)}
+                className={`pb-2 px-1 text-sm font-medium capitalize border-b-2 transition-colors ${adminAba === aba ? 'border-[#305BF2] text-[#305BF2]' : 'border-transparent text-slate-500'}`}
+              >
+                {aba === 'sistema' ? 'Sistema & Backup' : 'Fornecedores'}
+              </button>
+            ))}
+          </div>
+
+          {adminAba === 'sistema' && (
+            <div className="space-y-5">
+              {/* Health Check */}
+              <div>
+                <h3 className="font-semibold text-sm text-slate-700 mb-2">Status do sistema</h3>
+                {healthStatus ? (
+                  <div className={`rounded-xl p-4 ${healthStatus.status === 'UP' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={`w-3 h-3 rounded-full ${healthStatus.status === 'UP' ? 'bg-green-500' : 'bg-red-500'}`} />
+                      <span className={`font-bold text-sm ${healthStatus.status === 'UP' ? 'text-green-700' : 'text-red-700'}`}>
+                        Sistema {healthStatus.status}
+                      </span>
+                    </div>
+                    {healthStatus.componentes && Object.entries(healthStatus.componentes).map(([k, v]) => (
+                      <div key={k} className="flex justify-between text-xs text-slate-600 mt-1">
+                        <span>{k === 'bancoDeDados' ? 'Banco de dados' : 'Aplicação'}:</span>
+                        <span className={`font-semibold ${v === 'UP' ? 'text-green-600' : 'text-red-600'}`}>{String(v)}</span>
+                      </div>
+                    ))}
+                    <p className="text-xs text-slate-400 mt-2">{healthStatus.timestamp}</p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">Carregando...</p>
+                )}
+              </div>
+
+              {/* Backup */}
+              <div>
+                <h3 className="font-semibold text-sm text-slate-700 mb-2">Backup do banco de dados</h3>
+                <Button onClick={handleExecutarBackup} disabled={backupStatus === 'Executando...'} className="w-full h-11 bg-[#305BF2] hover:bg-[#2347c9] mb-3">
+                  {backupStatus === 'Executando...' ? 'Executando backup...' : 'Executar backup agora'}
+                </Button>
+                {backupStatus && backupStatus !== 'Executando...' && (
+                  <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm mb-3">{backupStatus}</div>
+                )}
+                {backupLista.length > 0 && (
+                  <div>
+                    <p className="text-xs text-slate-500 mb-2">Backups disponíveis:</p>
+                    <div className="space-y-1 max-h-36 overflow-y-auto">
+                      {backupLista.map(arquivo => (
+                        <div key={arquivo} className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 text-xs text-slate-700">
+                          <span>📦</span>{arquivo}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {adminAba === 'fornecedores' && (
+            <div className="space-y-3">
+              <Button onClick={() => setShowNovoFornecedor(!showNovoFornecedor)} className="w-full h-10 bg-[#305BF2] hover:bg-[#2347c9] text-sm">
+                {showNovoFornecedor ? 'Cancelar' : '+ Novo fornecedor'}
+              </Button>
+
+              {showNovoFornecedor && (
+                <div className="bg-slate-50 rounded-xl p-4 space-y-3 border border-slate-200">
+                  <h4 className="font-semibold text-sm text-slate-700">Cadastrar fornecedor</h4>
+                  <Input placeholder="Nome *" value={novoFornecedor.nome} onChange={e => setNovoFornecedor({...novoFornecedor, nome: e.target.value})} className="h-10 text-sm" />
+                  <Input placeholder="Tipo de serviço *" value={novoFornecedor.tipoServico} onChange={e => setNovoFornecedor({...novoFornecedor, tipoServico: e.target.value})} className="h-10 text-sm" />
+                  <Input placeholder="CNPJ" value={novoFornecedor.cnpj} onChange={e => setNovoFornecedor({...novoFornecedor, cnpj: e.target.value})} className="h-10 text-sm" />
+                  <Input placeholder="E-mail de contato" value={novoFornecedor.emailContato} onChange={e => setNovoFornecedor({...novoFornecedor, emailContato: e.target.value})} className="h-10 text-sm" />
+                  <Input placeholder="Observações" value={novoFornecedor.observacoes} onChange={e => setNovoFornecedor({...novoFornecedor, observacoes: e.target.value})} className="h-10 text-sm" />
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" id="lgpdForn" checked={novoFornecedor.conformeLgpd} onChange={e => setNovoFornecedor({...novoFornecedor, conformeLgpd: e.target.checked})} className="accent-[#305BF2]" />
+                    <label htmlFor="lgpdForn" className="text-xs text-slate-600">Fornecedor está em conformidade com a LGPD</label>
+                  </div>
+                  <Button onClick={handleCadastrarFornecedor} className="w-full h-10 bg-green-600 hover:bg-green-700 text-sm">Salvar fornecedor</Button>
+                </div>
+              )}
+
+              <div className="space-y-2 max-h-72 overflow-y-auto">
+                {fornecedores.map(f => (
+                  <div key={f.id} className="bg-white border border-slate-200 rounded-xl p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-sm text-slate-800">{f.nome}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${f.status === 'ATIVO' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{f.status}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${f.conformeLgpd ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                            {f.conformeLgpd ? 'LGPD ✓' : 'LGPD pendente'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">{f.tipoServico}</p>
+                        {f.emailContato && <p className="text-xs text-slate-400">{f.emailContato}</p>}
+                      </div>
+                      {f.status === 'ATIVO' && (
+                        <button onClick={() => handleDesativarFornecedor(f.id)} className="text-xs text-red-500 hover:text-red-700 flex-shrink-0 mt-1">Desativar</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmação de Exclusão de Conta */}
+      <Dialog open={showExclusaoConfirm} onOpenChange={setShowExclusaoConfirm}>
+        <DialogContent className="max-w-[90vw] w-full rounded-2xl">
+          <div className="flex flex-col items-center text-center pt-2 pb-1 gap-4">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+              <Trash className="w-8 h-8 text-red-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-800 mb-1">Excluir minha conta</h2>
+              <p className="text-sm text-slate-500 leading-relaxed">
+                Tem certeza que deseja solicitar a exclusão da sua conta?
+              </p>
+            </div>
+            <div className="w-full bg-red-50 border border-red-100 rounded-xl p-4 text-left space-y-2">
+              <p className="text-xs font-semibold text-red-700 uppercase tracking-wide">O que vai acontecer:</p>
+              <ul className="space-y-1.5">
+                {[
+                  'Sua conta será desativada imediatamente',
+                  'Você perderá o acesso à plataforma',
+                  'Seus dados serão removidos em até 15 dias úteis',
+                  'Seus ingressos comprados não serão reembolsados',
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2 text-xs text-red-700">
+                    <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="flex flex-col gap-2 w-full pt-1">
+              <Button
+                onClick={handleSolicitarExclusao}
+                className="w-full h-12 bg-red-600 hover:bg-red-700 text-white font-semibold"
+              >
+                Sim, solicitar exclusão
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowExclusaoConfirm(false)}
+                className="w-full h-12"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* LGPD Dialog */}
+      <Dialog open={showLgpdDialog} onOpenChange={setShowLgpdDialog}>
+        <DialogContent className="max-w-[95vw] w-full max-h-[85vh] overflow-y-auto rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-[#305BF2]" />
+              Privacidade e LGPD
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-5 py-2">
+            {/* Meus Dados */}
+            <div>
+              <h3 className="font-semibold text-sm text-slate-700 mb-2">Meus dados armazenados</h3>
+              {lgpdLoading ? (
+                <p className="text-sm text-slate-400">Carregando...</p>
+              ) : lgpdData ? (
+                <div className="bg-slate-50 rounded-xl p-3 space-y-2 text-sm">
+                  {Object.entries(lgpdData).map(([chave, valor]) => (
+                    <div key={chave} className="flex justify-between gap-2">
+                      <span className="text-slate-500 capitalize">{chave.replace(/([A-Z])/g, ' $1')}:</span>
+                      <span className="font-medium text-right">{String(valor)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-red-500">Não foi possível carregar os dados.</p>
+              )}
+            </div>
+
+            {/* Política de Privacidade */}
+            <div>
+              <h3 className="font-semibold text-sm text-slate-700 mb-2">Política de Privacidade</h3>
+              <Link
+                to="/politica-privacidade"
+                className="flex items-center justify-between w-full p-3 border border-slate-200 rounded-xl text-sm text-[#305BF2] hover:bg-slate-50 transition-colors"
+              >
+                <span>Ler Política de Privacidade completa</span>
+                <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
+
+            {/* Solicitar Exclusão */}
+            <div>
+              <h3 className="font-semibold text-sm text-slate-700 mb-1">Solicitar exclusão de conta</h3>
+              <p className="text-xs text-slate-500 mb-3">
+                Conforme a LGPD, você pode solicitar a exclusão dos seus dados. Sua conta será desativada e os dados removidos em até 15 dias.
+              </p>
+              {lgpdMensagem ? (
+                <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm">
+                  {lgpdMensagem}
+                </div>
+              ) : (
+                <Button
+                  onClick={() => setShowExclusaoConfirm(true)}
+                  variant="outline"
+                  className="w-full h-11 border-red-200 text-red-600 hover:bg-red-50"
+                >
+                  Solicitar exclusão da minha conta
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>
