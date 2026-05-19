@@ -47,6 +47,8 @@ https://youtu.be/vfWygV72uX0?si=84m4L5fOT6NgdDML
 
 ### Entrega 4 (18/05)
 
+Screencast: https://youtu.be/6cm3xAS81DU
+
 ## 4. Como rodar a Conectarena em seu equipamento:
 
 Guia Rápido 
