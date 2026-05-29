@@ -10,6 +10,7 @@ A equipe do projeto é composta pelos seguintes membros e suas respectivas funç
 - **Luiz Fernando** - Desenvolvedor
 - **Lucas Vinicius** - Desenvolvedor
 -  **Thainá Pontes** - Desenvolvedor(a)
+- **Ana Beatriz** - Desenvolvedor(a)
   
 ## 3. Entregas:
 ### Entrega 1 (16/03)
