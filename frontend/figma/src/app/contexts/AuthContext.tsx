@@ -18,20 +18,44 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function isTokenExpired(token: string | null): boolean {
+  if (!token) return true;
+
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return true;
+
+    const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    const exp = typeof decoded.exp === 'number' ? decoded.exp * 1000 : undefined;
+    return exp === undefined || Date.now() > exp;
+  } catch {
+    return true;
+  }
+}
+
+function clearAuthStorage() {
+  localStorage.removeItem('conectarena_user');
+  localStorage.removeItem('conectarena_token');
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar se há usuário salvo no localStorage
     const savedUser = localStorage.getItem('conectarena_user');
-    if (savedUser) {
+    const savedToken = localStorage.getItem('conectarena_token');
+
+    if (savedUser && savedToken && !isTokenExpired(savedToken)) {
       try {
         setUser(JSON.parse(savedUser));
       } catch (error) {
-        localStorage.removeItem('conectarena_user');
+        clearAuthStorage();
       }
+    } else {
+      clearAuthStorage();
     }
+
     setIsLoading(false);
   }, []);
 
@@ -96,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('conectarena_user');
+    clearAuthStorage();
   };
 
   return (

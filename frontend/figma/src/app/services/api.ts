@@ -1,8 +1,8 @@
 import type { Event, EventCategory } from '../data/mockData';
 
-function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const token = localStorage.getItem('conectarena_token');
-  return fetch(url, {
+  const response = await fetch(url, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -10,6 +10,13 @@ function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
       ...(options.headers ?? {}),
     },
   });
+
+  if ((response.status === 401 || response.status === 403) && token) {
+    localStorage.removeItem('conectarena_token');
+    localStorage.removeItem('conectarena_user');
+  }
+
+  return response;
 }
 
 interface ApiEvent {
