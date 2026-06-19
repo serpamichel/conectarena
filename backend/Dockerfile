@@ -1,37 +1,11 @@
-# Build stage
-FROM maven:3.9.9-amazoncorretto-17 AS build
-WORKDIR /workspace
-
-# Copia o pom e o código fonte do módulo plataforma
-COPY plataforma/pom.xml ./
-COPY plataforma/src ./src
-
-# Baixa dependências e empacota a aplicação
-RUN mvn -B -f pom.xml -Dmaven.test.skip=true package
-
-# Runtime stage
-FROM eclipse-temurin:17-jre-jammy AS runtime
+FROM maven:3-eclipse-temurin-17-alpine AS build
 WORKDIR /app
+COPY . .
+WORKDIR /app/plataforma
+RUN mvn clean package -DskipTests
 
-# Create non-root user for security
-RUN useradd -m -u 1000 appuser
-
-# Copia o jar gerado pelo build
-COPY --from=build /workspace/target/plataforma-0.0.1-SNAPSHOT.jar ./app.jar
-RUN chown -R appuser:appuser /app
-
-# Switch to non-root user
-USER appuser
-
+FROM eclipse-temurin:17-jre-alpine
+WORKDIR /app
+COPY --from=build /app/plataforma/target/*.jar app.jar
 EXPOSE 8080
-
-# Environment variables
-ENV SPRING_PROFILES_ACTIVE=prod \
-    DB_USERNAME=postgres \
-    JAVA_OPTS="-XX:+UseG1GC -XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=25.0 -XX:+UseStringDeduplication"
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8080/api/actuator/health || exit 1
-
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
+ENTRYPOINT ["java", "-jar", "app.jar"]
