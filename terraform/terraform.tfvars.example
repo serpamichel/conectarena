@@ -1,0 +1,27 @@
+# Terraform Variables - Copy to terraform.tfvars and update with your values
+
+aws_region     = "us-east-1"
+environment    = "production"
+app_name       = "conectarena"
+vpc_cidr       = "10.0.0.0/16"
+
+# Container settings
+backend_cpu            = 512
+backend_memory         = 1024
+backend_desired_count  = 2
+
+frontend_cpu            = 256
+frontend_memory         = 512
+frontend_desired_count  = 2
+
+# Database settings
+db_engine_version     = "16.1"
+db_instance_class     = "db.t3.micro"  # Change to db.t3.small for production
+db_allocated_storage  = 20
+db_username           = "postgres"
+# db_password         = "your-secure-password" # IMPORTANT: Set via environment or terraform.tfvars.local
+db_name               = "conectarena"
+
+# ECR settings
+ecr_image_scan_on_push = true
+container_image_tag    = "latest"
