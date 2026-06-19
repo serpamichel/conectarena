@@ -1,0 +1,10 @@
+node_modules
+figma/node_modules
+figma/dist
+dist
+*.log
+*.tmp
+*.swp
+.git
+.gitignore
+Dockerfile

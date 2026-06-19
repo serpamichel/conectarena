@@ -2,11 +2,11 @@
 services:
   backend:
     build:
-      context: ./backend/plataforma
+      context: ./backend
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
-      
+
   frontend:
     build:
       context: ./frontend
