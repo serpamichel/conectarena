@@ -1,5 +1,6 @@
 package br.com.conectarena.plataforma.Controller;
 
+import br.com.conectarena.plataforma.Model.Comment;
 import br.com.conectarena.plataforma.Model.CommunityPost;
 import br.com.conectarena.plataforma.Service.CommunityPostService;
 import org.springframework.beans.factory.annotation.Autowired;

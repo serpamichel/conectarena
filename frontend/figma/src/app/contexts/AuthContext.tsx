@@ -4,33 +4,58 @@ interface User {
   id: string;
   name: string;
   email: string;
+  role: string;
   avatar?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string) => Promise<void>;
+  signup: (name: string, email: string, password: string, aceitouLgpd: boolean) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function isTokenExpired(token: string | null): boolean {
+  if (!token) return true;
+
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return true;
+
+    const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    const exp = typeof decoded.exp === 'number' ? decoded.exp * 1000 : undefined;
+    return exp === undefined || Date.now() > exp;
+  } catch {
+    return true;
+  }
+}
+
+function clearAuthStorage() {
+  localStorage.removeItem('conectarena_user');
+  localStorage.removeItem('conectarena_token');
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar se há usuário salvo no localStorage
     const savedUser = localStorage.getItem('conectarena_user');
-    if (savedUser) {
+    const savedToken = localStorage.getItem('conectarena_token');
+
+    if (savedUser && savedToken && !isTokenExpired(savedToken)) {
       try {
         setUser(JSON.parse(savedUser));
       } catch (error) {
-        localStorage.removeItem('conectarena_user');
+        clearAuthStorage();
       }
+    } else {
+      clearAuthStorage();
     }
+
     setIsLoading(false);
   }, []);
 
@@ -42,7 +67,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (!response.ok) {
-      throw new Error('Email ou senha inválidos');
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 429) {
+        throw new Error(data.mensagem || 'Conta bloqueada temporariamente. Tente novamente em 15 minutos.');
+      }
+      const tentativas = data.tentativasRestantes;
+      const msg = data.erro || 'Email ou senha inválidos';
+      throw new Error(tentativas !== undefined ? `${msg} (${tentativas} tentativa${tentativas === 1 ? '' : 's'} restante${tentativas === 1 ? '' : 's'})` : msg);
     }
 
     const data = await response.json();
@@ -52,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       id: email,
       name: data.nome,
       email,
+      role: data.role || 'USER',
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
     };
 
@@ -59,11 +91,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('conectarena_user', JSON.stringify(loggedUser));
   };
 
-  const signup = async (name: string, email: string, password: string) => {
+  const signup = async (name: string, email: string, password: string, aceitouLgpd: boolean) => {
     const response = await fetch('/api/auth/cadastro', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nome: name, email, senha: password }),
+      body: JSON.stringify({ nome: name, email, senha: password, aceitouLgpd }),
     });
 
     if (!response.ok) {
@@ -78,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       id: email,
       name: data.nome,
       email,
+      role: data.role || 'USER',
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
     };
 
@@ -87,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('conectarena_user');
+    clearAuthStorage();
   };
 
   return (

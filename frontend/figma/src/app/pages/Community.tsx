@@ -31,6 +31,7 @@ export default function Community() {
   const [newPost, setNewPost] = useState('');
   const [showNewPost, setShowNewPost] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const isLoggedIn = Boolean(user);
   const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({});
   const [commentsByPost, setCommentsByPost] = useState<Record<number, ApiComment[]>>({});
   const [commentingPostId, setCommentingPostId] = useState<number | null>(null);
@@ -211,7 +212,13 @@ export default function Community() {
           {/* Create Post */}
           <div className="bg-white p-4 mb-2">
             <button
-              onClick={() => setShowNewPost(!showNewPost)}
+              onClick={() => {
+                if (!isLoggedIn) {
+                  window.alert('Faça login para publicar no feed.');
+                  return;
+                }
+                setShowNewPost(!showNewPost);
+              }}
               className="w-full flex items-center gap-3 p-3 bg-slate-50 rounded-full active:bg-slate-100 transition-colors"
             >
               <img
@@ -220,7 +227,7 @@ export default function Community() {
                 className="w-10 h-10 rounded-full"
               />
               <span className="text-slate-500 text-base">
-                Compartilhe algo com a comunidade...
+                {isLoggedIn ? 'Compartilhe algo com a comunidade...' : 'Faça login para publicar no feed'}
               </span>
             </button>
 
@@ -238,6 +245,11 @@ export default function Community() {
                     Seu post contém linguagem proibida. Remova palavras chulas para continuar.
                   </p>
                 )}
+                {!isLoggedIn && (
+                  <p className="text-sm text-slate-500">
+                    Você precisa estar logado para publicar posts. Faça login ou cadastre-se.
+                  </p>
+                )}
                 <div className="flex gap-2 justify-end">
                   <Button
                     variant="outline"
@@ -248,7 +260,7 @@ export default function Community() {
                   </Button>
                   <Button
                     onClick={handleCreatePost}
-                    disabled={!newPost.trim() || publishing || newPostHasProfanity}
+                    disabled={!isLoggedIn || !newPost.trim() || publishing || newPostHasProfanity}
                     className="bg-[#305BF2] hover:bg-[#2347c9] h-11 px-6"
                   >
                     {publishing ? (
@@ -431,25 +443,6 @@ export default function Community() {
         </div>
       )}
 
-      {/* Groups Tab */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-2xl p-6">
-          <DialogHeader>
-            <DialogTitle>Editar Post</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Textarea
-              value={editDraft}
-              onChange={(e) => setEditDraft(e.target.value)}
-              className="min-h-[120px]"
-            />
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowEditDialog(false)}>Cancelar</Button>
-              <Button onClick={handleSaveEdit} className="bg-[#305BF2] hover:bg-[#2347c9]">Salvar</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
       {activeTab === 'grupos' && (
         <div className="p-4 space-y-4">
           {communityGroups.map((group) => (
@@ -503,10 +496,36 @@ export default function Community() {
         </div>
       )}
 
+      {/* Edit Post Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl p-6">
+          <DialogHeader>
+            <DialogTitle>Editar Post</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Textarea
+              value={editDraft}
+              onChange={(e) => setEditDraft(e.target.value)}
+              className="min-h-[120px]"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowEditDialog(false)}>Cancelar</Button>
+              <Button onClick={handleSaveEdit} className="bg-[#305BF2] hover:bg-[#2347c9]">Salvar</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* FAB */}
       {activeTab === 'feed' && !showNewPost && (
         <button
-          onClick={() => setShowNewPost(true)}
+          onClick={() => {
+            if (!isLoggedIn) {
+              window.alert('Faça login para publicar no feed.');
+              return;
+            }
+            setShowNewPost(true);
+          }}
           className="fixed bottom-20 right-4 w-14 h-14 bg-[#305BF2] text-white rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform z-40"
         >
           <Plus className="w-6 h-6" />

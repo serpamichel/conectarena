@@ -10,6 +10,7 @@ A equipe do projeto é composta pelos seguintes membros e suas respectivas funç
 - **Luiz Fernando** - Desenvolvedor
 - **Lucas Vinicius** - Desenvolvedor
 -  **Thainá Pontes** - Desenvolvedor(a)
+- **Ana Beatriz** - Desenvolvedor(a)
   
 ## 3. Entregas:
 ### Entrega 1 (16/03)
@@ -46,6 +47,19 @@ https://youtu.be/vfWygV72uX0?si=84m4L5fOT6NgdDML
 
 
 ### Entrega 4 (18/05)
+<img width="1905" height="945" alt="image" src="https://github.com/user-attachments/assets/92be72d0-2327-4016-bc9c-1babe9913e35" />
+Screencast: https://youtu.be/6cm3xAS81DU
+
+## - Issues atuais:
+  1.1 - Ao criar um evento, o ADM é o único que consegue visualizá-lo. Caso outra pessoa utilize a aplicação, não há uma atualização de eventos criados, reiniciando a aplicação do zero.
+  <img width="1890" height="846" alt="Captura de tela 2026-05-18 233144" src="https://github.com/user-attachments/assets/760dbddc-b2aa-4fc7-b9a9-4f717a42ee7c" />
+
+  1.2 - Na aba "Comunidade" ao realizar um comentário em alguma postagem, o mesmo não é exibido abaixo do post do usuário. A mensagem é enviada, mas não é exibida.
+  <img width="1893" height="853" alt="image" src="https://github.com/user-attachments/assets/0bdb0287-91d9-43f5-8cce-78952be2229e" />
+
+  1.3 - Ao favoritar um evento, o mesmo não é exibido no perfil do usuário na parte, contabilizada, dos eventos favoritos.
+  <img width="1889" height="911" alt="image" src="https://github.com/user-attachments/assets/2de34db3-63cf-4a26-ba51-f7a44280d956" />
+
 
 ## 4. Como rodar a Conectarena em seu equipamento:
 
@@ -177,3 +191,5 @@ Se o frontend exibir erro de module/icone faltando após edição, execute pnpm 
 Use o Maven wrapper (mvnw) para garantir compatibilidade de versão do Maven.
 Para um ambiente mais previsível, use versões LTS: Java 17 e Node 18/20.
 Para compartilhar o app com outros na rede local, verifique políticas de CORS no backend ou configure server.address se necessário.
+
+

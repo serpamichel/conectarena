@@ -13,6 +13,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 import MyTickets from "./pages/MyTickets";
 import CreateEvent from "./pages/CreateEvent";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export const router = createBrowserRouter([
@@ -27,6 +28,10 @@ export const router = createBrowserRouter([
   {
     path: "/esqueci-senha",
     Component: ForgotPassword,
+  },
+  {
+    path: "/politica-privacidade",
+    Component: PrivacyPolicy,
   },
   {
     path: "/",

@@ -12,6 +12,7 @@ export default function Signup() {
     email: '',
     password: '',
     confirmPassword: '',
+    aceitouLgpd: false,
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -35,7 +36,7 @@ export default function Signup() {
     setIsLoading(true);
 
     try {
-      await signup(formData.name, formData.email, formData.password);
+      await signup(formData.name, formData.email, formData.password, formData.aceitouLgpd);
       navigate('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao criar conta');
@@ -158,10 +159,28 @@ export default function Signup() {
               </div>
             </div>
 
+            {/* Checkbox LGPD */}
+            <div className="flex items-start gap-3">
+              <input
+                id="lgpd"
+                type="checkbox"
+                checked={formData.aceitouLgpd}
+                onChange={(e) => setFormData({ ...formData, aceitouLgpd: e.target.checked })}
+                className="mt-1 w-4 h-4 accent-[#305BF2] cursor-pointer flex-shrink-0"
+              />
+              <label htmlFor="lgpd" className="text-xs text-slate-600 leading-relaxed cursor-pointer">
+                Li e aceito a{' '}
+                <Link to="/politica-privacidade" className="text-[#305BF2] hover:underline font-medium">
+                  Política de Privacidade
+                </Link>{' '}
+                e os Termos de Uso da ConectArena, e consinto com o tratamento dos meus dados pessoais conforme a LGPD (Lei nº 13.709/2018).
+              </label>
+            </div>
+
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || !formData.aceitouLgpd}
               className="w-full bg-[#305BF2] text-white py-4 rounded-xl font-medium hover:bg-[#2749c9] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
             >
               {isLoading ? (
@@ -174,18 +193,6 @@ export default function Signup() {
               )}
             </button>
           </form>
-
-          {/* Terms */}
-          <p className="text-xs text-slate-500 text-center mt-4">
-            Ao criar uma conta, você concorda com nossos{' '}
-            <a href="#" className="text-[#305BF2] hover:underline">
-              Termos de Uso
-            </a>{' '}
-            e{' '}
-            <a href="#" className="text-[#305BF2] hover:underline">
-              Política de Privacidade
-            </a>
-          </p>
 
           {/* Divider */}
           <div className="flex items-center gap-4 my-6">

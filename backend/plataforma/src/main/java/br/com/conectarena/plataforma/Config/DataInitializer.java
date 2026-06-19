@@ -2,10 +2,15 @@ package br.com.conectarena.plataforma.Config;
 
 import br.com.conectarena.plataforma.Model.CommunityPost;
 import br.com.conectarena.plataforma.Model.Event;
+import br.com.conectarena.plataforma.Model.Fornecedor;
+import br.com.conectarena.plataforma.Model.Usuario;
 import br.com.conectarena.plataforma.Repository.CommunityPostRepository;
 import br.com.conectarena.plataforma.Repository.EventRepository;
+import br.com.conectarena.plataforma.Repository.FornecedorRepository;
+import br.com.conectarena.plataforma.Repository.UsuarioRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -20,10 +25,75 @@ public class DataInitializer implements CommandLineRunner {
     @Autowired
     private CommunityPostRepository postRepository;
 
+    @Autowired
+    private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private FornecedorRepository fornecedorRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     @Override
     public void run(String... args) {
+        seedAdmin();
+        seedFornecedores();
         seedEvents();
         seedPosts();
+    }
+
+    private void seedAdmin() {
+        boolean adminExiste = usuarioRepository.findAll().stream()
+                .anyMatch(u -> u.getRole().equals("ADMIN"));
+        if (adminExiste) return;
+
+        Usuario admin = new Usuario();
+        admin.setNome("Administrador");
+        admin.setEmail("admin@conectarena.com");
+        admin.setSenha(passwordEncoder.encode("admin1234"));
+        admin.setRole("ADMIN");
+        admin.setConsentimentoLgpd(true);
+        admin.setDataConsentimento(LocalDateTime.now());
+        usuarioRepository.save(admin);
+    }
+
+    private void seedFornecedores() {
+        if (fornecedorRepository.count() > 0) return;
+
+        fornecedorRepository.save(buildFornecedor(
+            "H2 Database Engine", "Banco de Dados",
+            null, "support@h2database.com",
+            true, "Banco de dados H2 utilizado em ambiente de desenvolvimento e testes."
+        ));
+        fornecedorRepository.save(buildFornecedor(
+            "Unsplash", "CDN de Imagens",
+            null, "support@unsplash.com",
+            true, "Serviço de imagens de alta qualidade utilizado nos eventos da plataforma."
+        ));
+        fornecedorRepository.save(buildFornecedor(
+            "DiceBear", "Geração de Avatares",
+            null, "hello@dicebear.com",
+            true, "API para geração de avatares de usuários automaticamente."
+        ));
+        fornecedorRepository.save(buildFornecedor(
+            "QR Server", "Geração de QR Code",
+            null, "info@qrserver.com",
+            false, "Serviço externo para geração dos QR Codes dos ingressos. Conformidade LGPD pendente de verificação."
+        ));
+    }
+
+    private Fornecedor buildFornecedor(String nome, String tipo, String cnpj,
+                                        String email, boolean lgpd, String obs) {
+        Fornecedor f = new Fornecedor();
+        f.setNome(nome);
+        f.setTipoServico(tipo);
+        f.setCnpj(cnpj);
+        f.setEmailContato(email);
+        f.setConformeLgpd(lgpd);
+        f.setStatus("ATIVO");
+        f.setObservacoes(obs);
+        f.setDataCadastro(LocalDateTime.now());
+        return f;
     }
 
     private void seedEvents() {

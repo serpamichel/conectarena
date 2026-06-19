@@ -9,6 +9,7 @@ import { Card, CardContent } from '../components/ui/card';
 import { type Event, type EventCategory } from '../data/mockData';
 import { fetchAllEvents, getCreatedEventsForUser, deleteCreatedEventForUser } from '../services/api';
 import { isFeaturedActive } from '../utils/featured';
+import { warnIfOffline } from '../utils/offline';
 import { useAuth } from '../contexts/AuthContext';
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -141,6 +142,8 @@ export default function Home() {
   }, [mergedEvents, filteredEvents, now]);
 
   const handleCategoryChange = (category: string) => {
+    if (warnIfOffline('filtrar eventos')) return;
+
     if (category === 'todos') {
       setSearchParams({});
     } else {
