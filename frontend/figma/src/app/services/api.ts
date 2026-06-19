@@ -52,44 +52,81 @@ function mapEvent(e: ApiEvent): Event {
   };
 }
 
+async function handleJsonResponse<T>(res: Response, errorMsg: string): Promise<T> {
+  const contentType = res.headers.get('content-type');
+  
+  if (!res.ok) {
+    let error = errorMsg;
+    
+    // Se for erro de servidor, tenta extrair mensagem do HTML/JSON
+    if (contentType?.includes('application/json')) {
+      try {
+        const errData = await res.json();
+        error = errData.erro || errData.message || error;
+      } catch {
+        // fallback para mensagem padrão
+      }
+    } else if (contentType?.includes('text/html')) {
+      // Erro HTML - extrai mensagem se possível
+      console.warn(`Backend retornou HTML (erro ${res.status}). Verifique se o servidor está rodando.`);
+      error = `Erro do servidor (${res.status}). Backend pode não estar respondendo corretamente.`;
+    }
+    
+    throw new Error(error);
+  }
+
+  if (!contentType?.includes('application/json')) {
+    const text = await res.text();
+    console.error('Resposta não-JSON:', text.substring(0, 100));
+    throw new Error('Resposta do servidor não é JSON válido');
+  }
+
+  return res.json();
+}
+
 export async function fetchAllEvents(): Promise<Event[]> {
-  const res = await fetch('/api/events/all');
-  if (!res.ok) throw new Error('Falha ao buscar eventos');
-  const data: ApiEvent[] = await res.json();
-  return data.map(mapEvent);
+  try {
+    const res = await fetch('/api/events/all');
+    const data = await handleJsonResponse<ApiEvent[]>(res, 'Falha ao buscar eventos');
+    return data.map(mapEvent);
+  } catch (error) {
+    console.error('Erro ao buscar eventos:', error);
+    throw error;
+  }
 }
 
 export async function fetchEventById(id: string): Promise<Event> {
-  const res = await fetch(`/api/events/${id}`);
-  if (!res.ok) throw new Error('Evento não encontrado');
-  const data: ApiEvent = await res.json();
-  return mapEvent(data);
+  try {
+    const res = await fetch(`/api/events/${id}`);
+    const data = await handleJsonResponse<ApiEvent>(res, 'Evento não encontrado');
+    return mapEvent(data);
+  } catch (error) {
+    console.error(`Erro ao buscar evento ${id}:`, error);
+    throw error;
+  }
 }
 
 export async function createEvent(eventData: Partial<ApiEvent>): Promise<ApiEvent> {
-  const token = localStorage.getItem('conectarena_token');
-  const res = await fetch('/api/events', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-    },
-    body: JSON.stringify(eventData),
-  });
-  
-  if (!res.ok) {
+  try {
+    const token = localStorage.getItem('conectarena_token');
+    const res = await fetch('/api/events', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify(eventData),
+    });
+    
     if (res.status === 401 || res.status === 403) {
       throw new Error('A publicação de eventos exige login. Por favor, faça login e tente novamente.');
     }
 
-    let errorMsg = 'Falha ao criar evento';
-    if (res.status === 409 || res.status === 400) {
-      const errorData = await res.json().catch(() => ({}));
-      errorMsg = errorData.erro || errorMsg;
-    }
-    throw new Error(errorMsg);
+    return await handleJsonResponse<ApiEvent>(res, 'Falha ao criar evento');
+  } catch (error) {
+    console.error('Erro ao criar evento:', error);
+    throw error;
   }
-  return res.json();
 }
 
 const CREATED_EVENTS_KEY_PREFIX = 'conectarena_created_events_';
@@ -206,18 +243,21 @@ export async function createPurchase(params: {
   quantidade: number;
   metodoPagamento: string;
 }): Promise<PurchaseResponse> {
-  const res = await authFetch('/api/purchases', {
-    method: 'POST',
-    body: JSON.stringify(params),
-  });
-  if (!res.ok) {
+  try {
+    const res = await authFetch('/api/purchases', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    
     if (res.status === 401 || res.status === 403) {
       throw new Error('Não autorizado. É necessário fazer login para concluir a compra.');
     }
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as { erro?: string }).erro ?? `Falha ao processar compra (status ${res.status})`);
+    
+    return await handleJsonResponse<PurchaseResponse>(res, 'Falha ao processar compra');
+  } catch (error) {
+    console.error('Erro ao criar compra:', error);
+    throw error;
   }
-  return res.json();
 }
 
 export interface AnalyticsData {
@@ -242,9 +282,9 @@ export interface AnalyticsData {
 }
 
 export async function fetchAnalytics(): Promise<AnalyticsData> {
-  const res = await authFetch('/api/purchases/analytics');
-  if (!res.ok) throw new Error('Falha ao buscar analytics');
-  const json = await res.json().catch(() => ({}));
+  try {
+    const res = await authFetch('/api/purchases/analytics');
+    const json = await handleJsonResponse<any>(res, 'Falha ao buscar analytics');
 
   // Normalizar campos faltantes para evitar erros quando o backend retornar objeto parcial
   const defaultSalesByCategory = [
@@ -275,6 +315,10 @@ export async function fetchAnalytics(): Promise<AnalyticsData> {
     salesByDay: json.salesByDay ?? defaultSalesByDay,
     salesByMonth: json.salesByMonth ?? [],
   };
+  } catch (error) {
+    console.error('Erro ao buscar analytics:', error);
+    throw error;
+  }
 }
 
 export interface ApiPost {
@@ -302,10 +346,14 @@ export interface ApiComment {
 }
 
 export async function fetchPosts(userId?: string): Promise<ApiPost[]> {
-  const url = userId ? `/api/posts?userId=${userId}` : '/api/posts';
-  const res = await authFetch(url);
-  if (!res.ok) throw new Error('Falha ao buscar posts');
-  return res.json();
+  try {
+    const url = userId ? `/api/posts?userId=${userId}` : '/api/posts';
+    const res = await authFetch(url);
+    return await handleJsonResponse<ApiPost[]>(res, 'Falha ao buscar posts');
+  } catch (error) {
+    console.error('Erro ao buscar posts:', error);
+    throw error;
+  }
 }
 
 export async function createPost(params: {
@@ -315,12 +363,16 @@ export async function createPost(params: {
   content: string;
   tags?: string[];
 }): Promise<ApiPost> {
-  const res = await authFetch('/api/posts', {
-    method: 'POST',
-    body: JSON.stringify(params),
-  });
-  if (!res.ok) throw new Error('Falha ao publicar post');
-  return res.json();
+  try {
+    const res = await authFetch('/api/posts', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    return await handleJsonResponse<ApiPost>(res, 'Falha ao publicar post');
+  } catch (error) {
+    console.error('Erro ao criar post:', error);
+    throw error;
+  }
 }
 
 export interface TicketPurchase {
@@ -342,21 +394,29 @@ export interface TicketPurchase {
 }
 
 export async function fetchMyPurchases(userId: string): Promise<TicketPurchase[]> {
-  const res = await authFetch(`/api/purchases/user/${userId}`);
-  if (!res.ok) throw new Error('Erro ao buscar ingressos');
-  return res.json();
+  try {
+    const res = await authFetch(`/api/purchases/user/${userId}`);
+    return await handleJsonResponse<TicketPurchase[]>(res, 'Erro ao buscar ingressos');
+  } catch (error) {
+    console.error('Erro ao buscar compras:', error);
+    throw error;
+  }
 }
 
 export async function togglePostLike(
   postId: number,
   userId: string
 ): Promise<{ likes: number; likedByMe: boolean }> {
-  const res = await authFetch(`/api/posts/${postId}/like`, {
-    method: 'POST',
-    body: JSON.stringify({ userId }),
-  });
-  if (!res.ok) throw new Error('Falha ao curtir post');
-  return res.json();
+  try {
+    const res = await authFetch(`/api/posts/${postId}/like`, {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    });
+    return await handleJsonResponse<{ likes: number; likedByMe: boolean }>(res, 'Falha ao curtir post');
+  } catch (error) {
+    console.error('Erro ao curtir post:', error);
+    throw error;
+  }
 }
 
 export async function addPostComment(params: {
@@ -365,18 +425,26 @@ export async function addPostComment(params: {
   authorName: string;
   text: string;
 }): Promise<{ comments: number }> {
-  const res = await authFetch(`/api/posts/${params.postId}/comment`, {
-    method: 'POST',
-    body: JSON.stringify(params),
-  });
-  if (!res.ok) throw new Error('Falha ao enviar comentário');
-  return res.json();
+  try {
+    const res = await authFetch(`/api/posts/${params.postId}/comment`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    return await handleJsonResponse<{ comments: number }>(res, 'Falha ao enviar comentário');
+  } catch (error) {
+    console.error('Erro ao adicionar comentário:', error);
+    throw error;
+  }
 }
 
 export async function fetchPostComments(postId: number): Promise<ApiComment[]> {
-  const res = await authFetch(`/api/posts/${postId}/comments`);
-  if (!res.ok) throw new Error('Falha ao buscar comentários');
-  return res.json();
+  try {
+    const res = await authFetch(`/api/posts/${postId}/comments`);
+    return await handleJsonResponse<ApiComment[]>(res, 'Falha ao buscar comentários');
+  } catch (error) {
+    console.error('Erro ao buscar comentários:', error);
+    throw error;
+  }
 }
 
 const LOCAL_POST_OVERRIDES_PREFIX = 'conectarena_post_overrides_';
